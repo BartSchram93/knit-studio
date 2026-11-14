@@ -1,0 +1,94 @@
+name: Build
+
+# Reusable build used by CI and Release: tests, the Android APKs and the unsigned iOS IPA for
+# AltStore. No Apple certificates or secrets are involved — AltStore signs the IPA on the phone.
+on:
+  workflow_call:
+    outputs:
+      version:
+        description: "App version (versionName) that was built"
+        value: ${{ jobs.android.outputs.version }}
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Tests and Android APK
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Read version
+        id: version
+        run: echo "version=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' androidApp/build.gradle.kts | head -1)" >> "$GITHUB_OUTPUT"
+      - name: Engine, persistence, PDF and UI tests
+        run: ./gradlew :shared:jvmTest :composeApp:jvmTest :androidApp:testDebugUnitTest
+      - name: Build APKs
+        run: |
+          ./gradlew :androidApp:assembleDebug :androidApp:assembleRelease
+          mkdir -p dist
+          V="${{ steps.version.outputs.version }}"; N="${{ github.run_number }}"
+          cp androidApp/build/outputs/apk/release/androidApp-release.apk "dist/KnitStudio-$V-build$N.apk"
+          cp androidApp/build/outputs/apk/debug/androidApp-debug.apk "dist/KnitStudio-$V-build$N-debug.apk"
+          cp androidApp/build/outputs/apk/release/androidApp-release.apk dist/KnitStudio.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KnitStudio-Android-${{ steps.version.outputs.version }}-build${{ github.run_number }}
+          path: dist/*.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots-build${{ github.run_number }}
+          path: composeApp/build/screenshots
+          retention-days: 14
+
+  ios:
+    name: iOS tests and IPA for AltStore
+    runs-on: macos-15
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Read version
+        id: version
+        run: echo "version=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' androidApp/build.gradle.kts | head -1)" >> "$GITHUB_OUTPUT"
+      - name: Shared tests on the iOS simulator (incl. on-device storage location)
+        run: ./gradlew :shared:iosSimulatorArm64Test
+      - name: Build and check the unsigned IPA
+        run: scripts/build-ios-ipa.sh "${{ github.run_number }}" dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KnitStudio-iOS-${{ steps.version.outputs.version }}-build${{ github.run_number }}
+          path: |
+            dist/*.ipa
+            dist/ipa-info.txt
+          if-no-files-found: error
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Knit Studio ${{ steps.version.outputs.version }} — build ${{ github.run_number }}"
+            echo
+            echo "Commit \`${GITHUB_SHA::7}\` on \`${GITHUB_REF_NAME}\`."
+            echo
+            if [ -f dist/ipa-info.txt ]; then
+              echo '```'; cat dist/ipa-info.txt; echo '```'
+              echo
+              echo "The IPA is **unsigned**. Install it with AltStore, which signs it with your Apple ID — see \`IOS_ALTSTORE_SETUP.md\`."
+            else
+              echo "No IPA was produced."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
