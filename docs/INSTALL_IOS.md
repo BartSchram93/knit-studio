@@ -24,7 +24,7 @@ practical ways, all free or cheap.
 
 ## Option A — Xcode on a Mac (simplest and most reliable)
 
-Requirements: a Mac with Xcode 16 or newer, JDK 17+ (`brew install openjdk@21`), your iPhone and a cable.
+Requirements: an Apple-silicon Mac (M1 or later; the simulator build excludes Intel) with Xcode 16 or newer, JDK 17+ (`brew install openjdk@21`), your iPhone and a cable.
 
 1. Clone the repository on the Mac.
 2. Open `iosApp/iosApp.xcodeproj` in Xcode.
