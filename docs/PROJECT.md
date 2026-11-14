@@ -47,7 +47,7 @@ The living record of the project: what is done, how it was verified, what is not
 | `:shared:jvmTest` — engine, conversion, validator, calculators, files, templates, companion, repository, migration, PDF | 139 | pass |
 | `:composeApp:jvmTest` — UI workflows and screenshot tour (headless) | 14 | pass |
 | `:androidApp:testDebugUnitTest` — Android Application/Activity start, Android SQLite driver (Robolectric) | 2 | pass |
-| `:shared:iosSimulatorArm64Test` — the shared engine tests on the iOS simulator (GitHub Actions, macOS) | 126 common tests | pass |
+| `:shared:iosSimulatorArm64Test` — the shared engine tests on the iOS simulator (GitHub Actions, macOS) | all common tests | pass |
 | Xcode build: simulator, device (unsigned) and IPA packaging (GitHub Actions, macOS) | — | pass |
 
 Other verification performed:
