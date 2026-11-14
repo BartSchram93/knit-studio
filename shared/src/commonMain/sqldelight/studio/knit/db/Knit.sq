@@ -1,0 +1,83 @@
+-- Knit Studio local database, schema version 2.
+--
+-- Patterns are stored as one JSON document each (the same serialisation as .knit files), with
+-- the few columns needed for ordering kept alongside. This keeps the database schema stable while
+-- the pattern model evolves; model changes are handled by the versioned JSON format.
+
+CREATE TABLE pattern (
+  id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  updated_at INTEGER NOT NULL,
+  json TEXT NOT NULL
+);
+
+CREATE TABLE custom_stitch (
+  id TEXT NOT NULL PRIMARY KEY,
+  json TEXT NOT NULL
+);
+
+CREATE TABLE setting (
+  key TEXT NOT NULL PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+CREATE TABLE image (
+  id TEXT NOT NULL PRIMARY KEY,
+  pattern_id TEXT NOT NULL,
+  bytes BLOB NOT NULL
+);
+
+-- Added in schema version 2 (see 1.sqm).
+CREATE TABLE collection (
+  id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  sort_index INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE stash_item (
+  id TEXT NOT NULL PRIMARY KEY,
+  kind TEXT NOT NULL,
+  json TEXT NOT NULL
+);
+
+CREATE INDEX image_pattern ON image(pattern_id);
+
+-- Patterns
+selectPatterns: SELECT * FROM pattern ORDER BY updated_at DESC;
+selectPattern: SELECT * FROM pattern WHERE id = ?;
+upsertPattern: INSERT OR REPLACE INTO pattern(id, name, updated_at, json) VALUES (?, ?, ?, ?);
+deletePattern: DELETE FROM pattern WHERE id = ?;
+deleteAllPatterns: DELETE FROM pattern;
+countPatterns: SELECT COUNT(*) FROM pattern;
+
+-- Custom stitches
+selectStitches: SELECT * FROM custom_stitch;
+upsertStitch: INSERT OR REPLACE INTO custom_stitch(id, json) VALUES (?, ?);
+deleteStitch: DELETE FROM custom_stitch WHERE id = ?;
+deleteAllStitches: DELETE FROM custom_stitch;
+
+-- Settings
+selectSettings: SELECT * FROM setting;
+upsertSetting: INSERT OR REPLACE INTO setting(key, value) VALUES (?, ?);
+deleteAllSettings: DELETE FROM setting;
+
+-- Images
+selectImage: SELECT bytes FROM image WHERE id = ?;
+selectImagesForPattern: SELECT id, bytes FROM image WHERE pattern_id = ?;
+selectAllImages: SELECT id, bytes FROM image;
+upsertImage: INSERT OR REPLACE INTO image(id, pattern_id, bytes) VALUES (?, ?, ?);
+deleteImage: DELETE FROM image WHERE id = ?;
+deleteImagesForPattern: DELETE FROM image WHERE pattern_id = ?;
+deleteAllImages: DELETE FROM image;
+
+-- Collections
+selectCollections: SELECT * FROM collection ORDER BY sort_index, name;
+upsertCollection: INSERT OR REPLACE INTO collection(id, name, sort_index) VALUES (?, ?, ?);
+deleteCollection: DELETE FROM collection WHERE id = ?;
+deleteAllCollections: DELETE FROM collection;
+
+-- Yarn and needle stash
+selectStash: SELECT * FROM stash_item WHERE kind = ?;
+upsertStash: INSERT OR REPLACE INTO stash_item(id, kind, json) VALUES (?, ?, ?);
+deleteStash: DELETE FROM stash_item WHERE id = ?;
+deleteAllStash: DELETE FROM stash_item;
