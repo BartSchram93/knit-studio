@@ -1,0 +1,14 @@
+-- Schema 1 → 2: collections and the yarn/needle stash.
+CREATE TABLE collection (
+  id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  sort_index INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE stash_item (
+  id TEXT NOT NULL PRIMARY KEY,
+  kind TEXT NOT NULL,
+  json TEXT NOT NULL
+);
+
+CREATE INDEX image_pattern ON image(pattern_id);
