@@ -8,7 +8,7 @@ The living record of the project: what is done, how it was verified, what is not
 - [x] Competitor and conventions research (`RESEARCH.md`), product requirements (`PRODUCT.md`)
 - [x] Architecture (`ARCHITECTURE.md`), repository structure, Gradle build on current stable versions
 - [x] Design system, navigation, data model, persistence, home screen, create/save patterns
-- [ ] **GitHub repository created and pushed** — blocked, see "Environment limits"
+- [x] GitHub repository (private) created and pushed: https://github.com/BartSchram93/knit-studio
 
 ### Stage 2 — Core knitting functionality
 - [x] Stitch library (37 built-in stitches, custom stitches)
@@ -67,7 +67,7 @@ Be aware of these before relying on the app:
 2. **The iOS app has never been linked or launched.** The Kotlin compiles; the Xcode project,
    `Info.plist` and Swift files were written by hand without Xcode. Expect to spend a little time
    on the first build (see `INSTALL_IOS.md`).
-3. **The CI workflow has never run**, as the repository could not be pushed.
+3. **The CI workflows had not completed a run when this log was written.** Check the Actions tab; the iOS job in particular is the first real build of the Xcode project.
 4. Cross-platform file compatibility is tested between two databases on the JVM and on the
    Android driver. Both platforms run the same shared encoder, so the result should hold on iOS,
    but an actual phone-to-phone transfer has not been done.
@@ -95,7 +95,7 @@ Be aware of these before relying on the app:
 
 | Limit | Effect | What is needed |
 |---|---|---|
-| The build session cannot create GitHub repositories (it may only push to existing ones) | The repository exists locally with full history but is not on GitHub | Create an empty private repository named `knit-studio`, then push (commands in the hand-over notes) |
+| The build session may push branches but not tags or releases | `v1.0.0` exists only as a local tag; there is no GitHub release yet | Run the **Release** workflow from the Actions tab (creates tag `v1.0.0` and a release with both APKs) |
 | Linux build machine, no macOS/Xcode | iOS framework not linked, app not built or signed, no IPA | Build on a Mac, or let the CI macOS job do it after the first push |
 | No hardware virtualisation | No Android emulator | Install the APK on a phone |
 
@@ -114,4 +114,4 @@ Be aware of these before relying on the app:
 
 | Version | Date | Notes |
 |---|---|---|
-| 1.0.0 | 2026-11-14 | First complete version; tag `v1.0.0` |
+| 1.0.0 | 2026-11-14 | First complete version. Publish with the Release workflow. |

@@ -47,7 +47,7 @@ Requirements: JDK 17 or newer (21 recommended). Android SDK with platform 37 for
 macOS with Xcode 16+ for the iOS app. Gradle is provided by the wrapper.
 
 ```bash
-git clone <your repository URL> knit-studio
+git clone https://github.com/BartSchram93/knit-studio.git
 ```
 
 ```bash
