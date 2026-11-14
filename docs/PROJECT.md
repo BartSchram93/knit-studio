@@ -32,7 +32,12 @@ The living record of the project: what is done, how it was verified, what is not
 - [x] All iOS Kotlin sources compile (`iosArm64`, `iosSimulatorArm64`), including UIKit / PhotosUI interop
 - [x] Xcode project, Swift entry point, app icon, CI job
 - [x] Xcode build on macOS (GitHub Actions): simulator build, device build and unsigned IPA all succeed
-- [ ] **Launch and on-device test on an iPhone** — not done; needs your Apple ID to sign
+- [x] AltStore distribution: permanent bundle ID `studio.knit.app`, unsigned IPA built and
+      structure-checked by `scripts/build-ios-ipa.sh`, published as the "latest" pre-release on
+      every push to `main`; guide in `IOS_ALTSTORE_SETUP.md`
+- [x] iOS database location pinned to `Library/Application Support/databases` and covered by a
+      simulator test
+- [ ] **Install through AltStore and on-device test on an iPhone** — not done
 
 ### Stage 6 — Refinement
 - [x] Light/dark themes, haptics, screen-transition and row-change animation
@@ -48,7 +53,8 @@ The living record of the project: what is done, how it was verified, what is not
 | `:composeApp:jvmTest` — UI workflows and screenshot tour (headless) | 14 | pass |
 | `:androidApp:testDebugUnitTest` — Android Application/Activity start, Android SQLite driver (Robolectric) | 2 | pass |
 | `:shared:iosSimulatorArm64Test` — the shared engine tests on the iOS simulator (GitHub Actions, macOS) | all common tests | pass |
-| Xcode build: simulator, device (unsigned) and IPA packaging (GitHub Actions, macOS) | — | pass |
+| Xcode device build, IPA packaging and IPA structure checks (`scripts/build-ios-ipa.sh`, GitHub Actions, macOS) | — | pass |
+| `IosStorageTest` — database in Application Support, survives reopening (iOS simulator) | 1 | see CI |
 
 Other verification performed:
 - Debug and release APKs built; release APK inspected (`aapt2`: package `studio.knit.app`,
@@ -98,8 +104,9 @@ Be aware of these before relying on the app:
 
 | Limit | Effect | What is needed |
 |---|---|---|
-| The build session may push branches but not tags or releases | `v1.0.0` exists only as a local tag; there is no GitHub release yet | Run the **Release** workflow from the Actions tab (creates tag `v1.0.0` and a release with both APKs) |
-| No Apple ID / signing identity available | The IPA from CI is unsigned and cannot be installed as is | Sign it with your Apple ID (Xcode, Sideloadly or AltStore) — see `INSTALL_IOS.md` |
+| The build session may push branches but not tags or releases | Releases are created by workflows instead | The "latest" pre-release updates on every push to `main`; run **Release** from the Actions tab for a numbered release with the APKs and the IPA |
+| No Apple ID / signing identity available, no iPhone | The IPA from CI is unsigned and its installation has not been tried | Install it with AltStore — see `IOS_ALTSTORE_SETUP.md` |
+| The session cannot download CI artifacts (blob storage host blocked) | IPA contents are checked inside CI by the build script instead | — |
 | No hardware virtualisation | No Android emulator | Install the APK on a phone |
 
 ## Roadmap

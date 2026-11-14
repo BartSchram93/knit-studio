@@ -36,10 +36,31 @@ One Kotlin Multiplatform codebase builds both apps.
 | | |
 |---|---|
 | Android | Debug and release APKs build and are installable. App start-up and database verified under Robolectric. |
-| iOS | Builds on macOS in CI (simulator, device, unsigned IPA); shared engine tests pass on the iOS simulator. **Not yet launched on an iPhone** — signing needs your Apple ID, see [docs/INSTALL_IOS.md](docs/INSTALL_IOS.md). |
+| iOS | CI builds an unsigned IPA for AltStore and checks its structure; shared tests (including on-device storage) pass on the iOS simulator. **Not yet installed on an iPhone** — see [Install on iPhone](#install-on-iphone). |
 | Tests | 155 automated tests: knitting engine, persistence and migration, file format, PDF, UI workflows, Android runtime. |
 
 Details, known issues and the roadmap live in [docs/PROJECT.md](docs/PROJECT.md).
+
+## Install on iPhone
+
+Knit Studio installs on your own iPhone with **AltStore Classic** and a **free Apple ID**, using a
+Windows or Mac computer. No paid developer account and no App Store are needed.
+
+1. Set up AltServer on the PC and AltStore on the iPhone (one time).
+2. Download the newest build: **[KnitStudio.ipa](https://github.com/BartSchram93/knit-studio/releases/download/latest/KnitStudio.ipa)**
+   ([release page](https://github.com/BartSchram93/knit-studio/releases/tag/latest)). It is
+   rebuilt on every push to `main`.
+3. AltStore › *My Apps* › **+** › choose the file. To update later, do the same with a newer
+   file. It replaces the app and keeps your patterns.
+4. AltStore re-signs the app automatically before the 7-day limit, whenever AltServer is reachable.
+
+Full step-by-step guide, data-safety rules and troubleshooting: **[IOS_ALTSTORE_SETUP.md](IOS_ALTSTORE_SETUP.md)**.
+Installation through AltStore has not yet been tested on a real iPhone.
+
+## Install on Android
+
+Download **[KnitStudio.apk](https://github.com/BartSchram93/knit-studio/releases/download/latest/KnitStudio.apk)**
+and open it on the phone — see [docs/INSTALL_ANDROID.md](docs/INSTALL_ANDROID.md).
 
 ## Build
 
@@ -67,7 +88,7 @@ Build the Android APKs (output in `androidApp/build/outputs/apk/`):
 ```
 
 - Android installation: [docs/INSTALL_ANDROID.md](docs/INSTALL_ANDROID.md)
-- iOS build, signing and installation: [docs/INSTALL_IOS.md](docs/INSTALL_IOS.md)
+- iPhone with AltStore: [IOS_ALTSTORE_SETUP.md](IOS_ALTSTORE_SETUP.md) · building from Xcode: [docs/INSTALL_IOS.md](docs/INSTALL_IOS.md)
 
 ## Repository layout
 
@@ -78,7 +99,8 @@ androidApp/    Android application shell (manifest, activity, icon)
 iosApp/        Xcode project and Swift entry point
 docs/          Research, product requirements, architecture, install guides, project log
 design/        Design system notes
-.github/       CI: tests, APKs, iOS simulator build and unsigned IPA
+.github/       CI: tests, APKs, unsigned iOS IPA, "latest" pre-release, manual Release workflow
+scripts/       build-ios-ipa.sh — builds and checks the IPA for AltStore
 ```
 
 ## Documentation
