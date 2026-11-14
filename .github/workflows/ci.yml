@@ -1,66 +1,56 @@
 name: CI
 
+# Every push and pull request: tests plus both apps. Pushes to main also refresh the
+# "latest" pre-release, whose download links never change:
+#   https://github.com/<owner>/knit-studio/releases/download/latest/KnitStudio.ipa
+#   https://github.com/<owner>/knit-studio/releases/download/latest/KnitStudio.apk
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
-jobs:
-  android:
-    name: Tests and Android APK
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-      - uses: gradle/actions/setup-gradle@v4
-      - name: Engine, persistence, PDF and UI tests
-        run: ./gradlew :shared:jvmTest :composeApp:jvmTest :androidApp:testDebugUnitTest
-      - name: Build APKs
-        run: ./gradlew :androidApp:assembleDebug :androidApp:assembleRelease
-      - uses: actions/upload-artifact@v4
-        with:
-          name: knit-studio-android
-          path: androidApp/build/outputs/apk/**/*.apk
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: screenshots
-          path: composeApp/build/screenshots
+concurrency:
+  group: ci-${{ github.ref }}
+  # Superseded pull-request runs are cancelled to save macOS minutes; main always finishes.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-  ios:
-    name: iOS build (simulator + unsigned IPA)
-    runs-on: macos-15
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+
+  latest:
+    name: Publish "latest" pre-release
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-latest
+      cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/download-artifact@v4
         with:
-          distribution: temurin
-          java-version: 21
-      - uses: gradle/actions/setup-gradle@v4
-      - name: Shared code tests on the iOS simulator
-        run: ./gradlew :shared:iosSimulatorArm64Test
-      - name: Build for the simulator
+          path: dist
+          pattern: KnitStudio-*
+          merge-multiple: true
+      - name: Replace the "latest" pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
-          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
-            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO build
-      - name: Build an unsigned IPA for sideloading
-        run: |
-          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Release \
-            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/ios \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
-          mkdir -p build/ipa/Payload
-          cp -R build/ios/Build/Products/Release-iphoneos/KnitStudio.app build/ipa/Payload/
-          (cd build/ipa && zip -qry KnitStudio-unsigned.ipa Payload)
-      - uses: actions/upload-artifact@v4
-        with:
-          name: knit-studio-ios-unsigned
-          path: build/ipa/KnitStudio-unsigned.ipa
+          ls -la dist
+          NOTES="Automatic build of \`main\` — version $VERSION, build ${{ github.run_number }}, commit ${GITHUB_SHA::7}, $(date -u +'%Y-%m-%d %H:%M UTC').
+
+          - **iPhone:** \`KnitStudio.ipa\` (unsigned) — install or update it with AltStore, see IOS_ALTSTORE_SETUP.md.
+          - **Android:** \`KnitStudio.apk\` — see docs/INSTALL_ANDROID.md.
+
+          The versioned files are the same builds under their full names. This pre-release is replaced on every push to main; tagged releases (v*) stay."
+          gh release delete latest --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes || true
+          gh release create latest dist/*.ipa dist/*.apk dist/ipa-info.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "Latest build — $VERSION (build ${{ github.run_number }})" --notes "$NOTES"

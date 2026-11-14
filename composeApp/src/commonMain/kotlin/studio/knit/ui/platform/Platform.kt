@@ -33,3 +33,7 @@ expect val platformName: String
 
 /** Decodes JPEG/PNG bytes for display; null when the data is not an image. */
 expect fun decodeImage(bytes: ByteArray): androidx.compose.ui.graphics.ImageBitmap?
+
+/** Version and build number of the installed app, e.g. "1.0.0 (42)". */
+@Composable
+expect fun appVersion(): String

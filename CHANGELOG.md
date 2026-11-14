@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- iPhone installation with AltStore Classic and a free Apple ID: `IOS_ALTSTORE_SETUP.md`.
+- `scripts/build-ios-ipa.sh`: builds the unsigned IPA and checks bundle ID, version, architecture,
+  app name, extensions, provisioning and entitlements.
+- CI publishes a rolling **latest** pre-release with `KnitStudio.ipa` and `KnitStudio.apk` at fixed
+  download links; the Release workflow now attaches the IPA too.
+- Settings › About shows the installed version and build number.
+- Simulator test for the iOS database location.
+
+### Changed
+- iOS bundle identifier fixed permanently to `studio.knit.app` (was a placeholder). The build
+  refuses to run if it changes.
+- iOS database directory pinned explicitly to `Library/Application Support/databases` (the
+  previous default, so nothing moves).
+- CI: build steps shared between CI and Release (`build.yml`); the redundant simulator app build
+  was dropped to save macOS minutes; superseded pull-request runs are cancelled.
+
 ## 1.0.0 — 2026-11-14
 
 First complete version.

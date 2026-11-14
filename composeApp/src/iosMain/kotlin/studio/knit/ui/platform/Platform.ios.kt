@@ -161,3 +161,11 @@ actual fun decodeImage(bytes: ByteArray): androidx.compose.ui.graphics.ImageBitm
     runCatching {
         org.jetbrains.skia.Bitmap.makeFromImage(org.jetbrains.skia.Image.makeFromEncoded(bytes)).asComposeImageBitmap()
     }.getOrNull()
+
+@Composable
+actual fun appVersion(): String {
+    val info = platform.Foundation.NSBundle.mainBundle.infoDictionary
+    val version = info?.get("CFBundleShortVersionString") as? String ?: "?"
+    val build = info?.get("CFBundleVersion") as? String
+    return if (build != null) "$version ($build)" else version
+}

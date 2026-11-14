@@ -135,3 +135,14 @@ actual val platformName: String = "Android"
 
 actual fun decodeImage(bytes: ByteArray): androidx.compose.ui.graphics.ImageBitmap? =
     runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap() }.getOrNull()
+
+@Composable
+actual fun appVersion(): String {
+    val context = LocalContext.current
+    return remember(context) {
+        runCatching {
+            val info = context.packageManager.getPackageInfo(context.packageName, 0)
+            "${info.versionName} (${androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(info)})"
+        }.getOrDefault("?")
+    }
+}

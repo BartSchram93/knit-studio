@@ -23,12 +23,19 @@ practical ways, all free or cheap.
 
 ## Option A — Xcode on a Mac (simplest and most reliable)
 
+> **Pick one route and stay with it.** An app installed from Xcode and the same app installed by
+> AltStore are registered differently (AltStore may add your team ID to the identifier), so iOS
+> treats them as two separate apps with separate data. If you use AltStore, use only AltStore.
+> If Xcode reports that the identifier `studio.knit.app` is not available for your team, use
+> AltStore (Option B) instead of changing the identifier.
+
 Requirements: an Apple-silicon Mac (M1 or later; the simulator build excludes Intel) with Xcode 16 or newer, JDK 17+ (`brew install openjdk@21`), your iPhone and a cable.
 
 1. Clone the repository on the Mac.
 2. Open `iosApp/iosApp.xcodeproj` in Xcode.
-3. Edit `iosApp/Configuration/Config.xcconfig`: change `BUNDLE_ID` to something of your own,
-   e.g. `com.yourname.KnitStudio`.
+3. Leave `BUNDLE_ID` in `iosApp/Configuration/Config.xcconfig` as `studio.knit.app`. It is the
+   app's permanent identity, and the builds refuse to run if it changes. Optionally put your team
+   ID in `TEAM_ID`.
 4. In Xcode select the **iosApp** target › **Signing & Capabilities** › tick *Automatically manage
    signing* and choose your **Team** (add your Apple ID under Xcode › Settings › Accounts first).
 5. Connect the iPhone, unlock it, trust the computer, and select it as the run destination.
@@ -41,20 +48,15 @@ Requirements: an Apple-silicon Mac (M1 or later; the simulator build excludes In
 With a free Apple ID, repeat step 7 once a week. Your patterns stay on the phone as long as you
 do not delete the app; make a backup from Settings › Back up everything regardless.
 
-## Option B — no Mac: GitHub Actions + a sideloading tool
+## Option B — no Mac: AltStore with the IPA from GitHub (recommended for Windows)
 
-The repository's CI builds an **unsigned IPA** on a GitHub-hosted Mac.
+CI builds an **unsigned IPA** on every push and publishes it at a fixed link. AltStore signs it
+with your free Apple ID and keeps it refreshed. Complete guide:
+**[IOS_ALTSTORE_SETUP.md](../IOS_ALTSTORE_SETUP.md)**.
 
-1. Push to GitHub and open **Actions › CI**. Download the artifact `knit-studio-ios-unsigned`.
-   (macOS minutes on private repositories count tenfold against the free quota; a build takes
-   roughly 15–25 minutes.)
-2. Sign and install the IPA with your own Apple ID using one of:
-   - **Sideloadly** (Windows/macOS) — drag the IPA in, enter your Apple ID, connect the phone.
-   - **AltStore** / **SideStore** — installs and re-signs the app on a schedule so the 7-day
-     limit takes care of itself.
-3. Trust your Apple ID on the phone as in step A8.
-
-These tools sign with the same free Personal Team, so the same 7-day and 3-app limits apply.
+Sideloadly also accepts the same IPA, but it does not refresh apps automatically, and signing
+with several tools under one free Apple ID can revoke AltStore's certificate. Pick one tool and
+stay with it.
 
 ## Option C — Apple Developer Program
 

@@ -35,12 +35,11 @@ import studio.knit.ui.components.Segmented
 import studio.knit.ui.components.Sheet
 import studio.knit.ui.components.SoftButton
 import studio.knit.ui.components.SwitchRow
+import studio.knit.ui.platform.appVersion
 import studio.knit.ui.platform.platformName
 import studio.knit.ui.platform.rememberPlatformActions
 import studio.knit.ui.theme.Knit
 import studio.knit.util.nowMillis
-
-const val APP_VERSION = "1.0.0"
 
 @Composable
 fun SettingsScreen() {
@@ -129,7 +128,7 @@ fun SettingsScreen() {
         item { SectionHeader("About") }
         item {
             Group {
-                ListRow("Knit Studio", value = "$APP_VERSION · $platformName")
+                ListRow("Knit Studio", value = "${appVersion()} · $platformName")
                 RowDivider()
                 ListRow("Patterns", value = (patterns?.size ?: 0).toString())
                 RowDivider()

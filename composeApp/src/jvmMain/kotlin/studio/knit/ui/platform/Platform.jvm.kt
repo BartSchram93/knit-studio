@@ -38,3 +38,6 @@ actual fun decodeImage(bytes: ByteArray): androidx.compose.ui.graphics.ImageBitm
     runCatching {
         org.jetbrains.skia.Bitmap.makeFromImage(org.jetbrains.skia.Image.makeFromEncoded(bytes)).asComposeImageBitmap()
     }.getOrNull()
+
+@Composable
+actual fun appVersion(): String = "development build"

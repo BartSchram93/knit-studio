@@ -1,9 +1,15 @@
-// Personal settings for building Knit Studio onto your own iPhone.
+// Knit Studio iOS build settings.
 //
-// TEAM_ID   Your Apple developer team. Leave empty and pick your team in Xcode
-//           (Signing & Capabilities) — a free Apple ID "Personal Team" works.
-// BUNDLE_ID Must be unique to you; change "example" to something of your own.
+// BUNDLE_ID  The app's permanent identity on your iPhone. iOS keeps an app's data (your patterns,
+//            photos and settings) only while updates arrive under the same identifier, so this
+//            value must NEVER change. scripts/build-ios-ipa.sh and CI refuse to build if it does.
+//            AltStore signs the app with your free Apple ID; it may append your team ID when it
+//            registers the app, and does so identically on every update and refresh.
+//
+// TEAM_ID    Only needed when building and running directly from Xcode on a Mac: put your
+//            Apple team ID here, or pick your team in Xcode › Signing & Capabilities.
+//            Leave empty for the unsigned AltStore builds made by CI.
 
+BUNDLE_ID=studio.knit.app
 TEAM_ID=
-BUNDLE_ID=studio.knit.example.KnitStudio
 APP_NAME=Knit Studio
