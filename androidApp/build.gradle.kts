@@ -14,7 +14,15 @@ android {
         versionName = "1.0.0"
     }
     buildTypes {
-        release { isMinifyEnabled = false }
+        release {
+            isMinifyEnabled = false
+            // Personal distribution: the release APK is signed with the debug key so it can be
+            // installed directly. Replace with your own keystore (never committed) if you prefer.
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+    packaging {
+        resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "/META-INF/versions/9/OSGI-INF/MANIFEST.MF")
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
