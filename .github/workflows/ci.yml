@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Tests and Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Engine, persistence, PDF and UI tests
+        run: ./gradlew :shared:jvmTest :composeApp:jvmTest :androidApp:testDebugUnitTest
+      - name: Build APKs
+        run: ./gradlew :androidApp:assembleDebug :androidApp:assembleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: knit-studio-android
+          path: androidApp/build/outputs/apk/**/*.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: composeApp/build/screenshots
+
+  ios:
+    name: iOS build (simulator + unsigned IPA)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Shared code tests on the iOS simulator
+        run: ./gradlew :shared:iosSimulatorArm64Test
+      - name: Build for the simulator
+        run: |
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Build an unsigned IPA for sideloading
+        run: |
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          mkdir -p build/ipa/Payload
+          cp -R build/ios/Build/Products/Release-iphoneos/KnitStudio.app build/ipa/Payload/
+          (cd build/ipa && zip -qry KnitStudio-unsigned.ipa Payload)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: knit-studio-ios-unsigned
+          path: build/ipa/KnitStudio-unsigned.ipa

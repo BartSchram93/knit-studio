@@ -33,6 +33,7 @@ kotlin {
             implementation(libs.lifecycle.runtime.compose)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.datetime)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -43,6 +44,14 @@ kotlin {
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
+        }
+        jvmTest.dependencies {
+            // Headless UI tests and screenshots of the shared interface.
+            @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
+            implementation(compose.uiTest)
+            implementation(compose.desktop.currentOs)
+            implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.sqldelight.jvm)
         }
     }
 }

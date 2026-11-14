@@ -284,7 +284,11 @@ fun evaluateSection(section: Section, sizeIndex: Int, library: StitchLibrary): S
         out += ExpandedRow(index, index + 1, rowSide, p.source, p.via, p.iteration, p.total, p.parsed, current, eval)
         // Report each distinct problem once, on the row (or repeat) that caused it.
         if (p.via == null || p.iteration == 1) {
-            for (i in eval.issues) issues += SectionIssue(p.source.id, i.severity, i.message)
+            for (i in eval.issues) {
+                // Hints such as "multiple of 18" are worth saying once per section, not on every row.
+                if (i.severity == Severity.INFO && issues.any { it.severity == Severity.INFO && it.message == i.message }) continue
+                issues += SectionIssue(p.source.id, i.severity, i.message)
+            }
         } else if (eval.hasErrors && out.none { it !== out.last() && it.source.id == p.source.id && it.eval.issues == eval.issues }) {
             for (i in eval.issues) issues += SectionIssue(p.via.id, i.severity, "Repeat ${p.iteration} of ${p.total}, row ${index + 1}: ${i.message}")
         }

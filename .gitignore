@@ -25,3 +25,4 @@ iosApp/build/
 *.dSYM
 # OS
 .DS_Store
+dist/
