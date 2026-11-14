@@ -1,8 +1,7 @@
 # Building and installing on iPhone
 
-> **Status:** the iOS app's Kotlin code compiles for device and simulator, but the Xcode project
-> in `iosApp/` was written without access to a Mac and has **not been built yet**. The first build
-> may need small fixes in the project settings. Everything below is the intended procedure.
+> **Status:** the iOS app builds on macOS in CI (simulator, device and an unsigned IPA) and the
+> shared engine tests pass on the iOS simulator. It has **not yet been launched on an iPhone**.
 
 Apple only allows apps onto an iPhone if they are signed. Without the App Store there are three
 practical ways, all free or cheap.

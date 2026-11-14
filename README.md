@@ -36,7 +36,7 @@ One Kotlin Multiplatform codebase builds both apps.
 | | |
 |---|---|
 | Android | Debug and release APKs build and are installable. App start-up and database verified under Robolectric. |
-| iOS | All Kotlin code (including UIKit/PhotosUI interop) compiles for `iosArm64` and `iosSimulatorArm64`. The Xcode project has **not yet been built**, because that needs a Mac — see [docs/INSTALL_IOS.md](docs/INSTALL_IOS.md). |
+| iOS | Builds on macOS in CI (simulator, device, unsigned IPA); shared engine tests pass on the iOS simulator. **Not yet launched on an iPhone** — signing needs your Apple ID, see [docs/INSTALL_IOS.md](docs/INSTALL_IOS.md). |
 | Tests | 155 automated tests: knitting engine, persistence and migration, file format, PDF, UI workflows, Android runtime. |
 
 Details, known issues and the roadmap live in [docs/PROJECT.md](docs/PROJECT.md).

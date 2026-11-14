@@ -31,7 +31,8 @@ The living record of the project: what is done, how it was verified, what is not
 ### Stage 5 — iOS
 - [x] All iOS Kotlin sources compile (`iosArm64`, `iosSimulatorArm64`), including UIKit / PhotosUI interop
 - [x] Xcode project, Swift entry point, app icon, CI job
-- [ ] **Xcode build, on-device test** — needs macOS; not done
+- [x] Xcode build on macOS (GitHub Actions): simulator build, device build and unsigned IPA all succeed
+- [ ] **Launch and on-device test on an iPhone** — not done; needs your Apple ID to sign
 
 ### Stage 6 — Refinement
 - [x] Light/dark themes, haptics, screen-transition and row-change animation
@@ -46,7 +47,8 @@ The living record of the project: what is done, how it was verified, what is not
 | `:shared:jvmTest` — engine, conversion, validator, calculators, files, templates, companion, repository, migration, PDF | 139 | pass |
 | `:composeApp:jvmTest` — UI workflows and screenshot tour (headless) | 14 | pass |
 | `:androidApp:testDebugUnitTest` — Android Application/Activity start, Android SQLite driver (Robolectric) | 2 | pass |
-| iOS simulator tests (`:shared:iosSimulatorArm64Test`) | — | configured in CI, **never run** |
+| `:shared:iosSimulatorArm64Test` — the shared engine tests on the iOS simulator (GitHub Actions, macOS) | 126 common tests | pass |
+| Xcode build: simulator, device (unsigned) and IPA packaging (GitHub Actions, macOS) | — | pass |
 
 Other verification performed:
 - Debug and release APKs built; release APK inspected (`aapt2`: package `studio.knit.app`,
@@ -64,10 +66,11 @@ Be aware of these before relying on the app:
    the desktop renderer, but real-device behaviour — touch feel in the chart editor, the system
    share sheet, the file and photo pickers, keyboard insets, performance on large charts — is
    untested.
-2. **The iOS app has never been linked or launched.** The Kotlin compiles; the Xcode project,
-   `Info.plist` and Swift files were written by hand without Xcode. Expect to spend a little time
-   on the first build (see `INSTALL_IOS.md`).
-3. **The CI workflows had not completed a run when this log was written.** Check the Actions tab; the iOS job in particular is the first real build of the Xcode project.
+2. **The iOS app has been built but never launched.** CI compiles, links and packages it on a
+   Mac, and the shared engine tests pass on the iOS simulator. Nobody has yet run the app on an
+   iPhone, so the iOS-specific parts (share sheet, document and photo pickers, keyboard and safe
+   area behaviour) are untested.
+3. CI runs on every push: tests, both APKs, the iOS builds and an unsigned IPA.
 4. Cross-platform file compatibility is tested between two databases on the JVM and on the
    Android driver. Both platforms run the same shared encoder, so the result should hold on iOS,
    but an actual phone-to-phone transfer has not been done.
@@ -96,7 +99,7 @@ Be aware of these before relying on the app:
 | Limit | Effect | What is needed |
 |---|---|---|
 | The build session may push branches but not tags or releases | `v1.0.0` exists only as a local tag; there is no GitHub release yet | Run the **Release** workflow from the Actions tab (creates tag `v1.0.0` and a release with both APKs) |
-| Linux build machine, no macOS/Xcode | iOS framework not linked, app not built or signed, no IPA | Build on a Mac, or let the CI macOS job do it after the first push |
+| No Apple ID / signing identity available | The IPA from CI is unsigned and cannot be installed as is | Sign it with your Apple ID (Xcode, Sideloadly or AltStore) — see `INSTALL_IOS.md` |
 | No hardware virtualisation | No Android emulator | Install the APK on a phone |
 
 ## Roadmap
