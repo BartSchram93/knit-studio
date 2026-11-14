@@ -1,0 +1,5 @@
+CREATE TABLE pattern (
+  id TEXT NOT NULL PRIMARY KEY,
+  json TEXT NOT NULL
+);
+selectAll: SELECT * FROM pattern;

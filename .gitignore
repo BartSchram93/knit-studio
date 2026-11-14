@@ -1,0 +1,27 @@
+# Gradle / Kotlin
+.gradle/
+build/
+.kotlin/
+local.properties
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+# Secrets & signing — never commit
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+*.cer
+.env
+keystore.properties
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcuserstate
+iosApp/build/
+*.ipa
+*.dSYM
+# OS
+.DS_Store
