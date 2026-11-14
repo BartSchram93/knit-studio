@@ -1,0 +1,9 @@
+// Personal settings for building Knit Studio onto your own iPhone.
+//
+// TEAM_ID   Your Apple developer team. Leave empty and pick your team in Xcode
+//           (Signing & Capabilities) — a free Apple ID "Personal Team" works.
+// BUNDLE_ID Must be unique to you; change "example" to something of your own.
+
+TEAM_ID=
+BUNDLE_ID=studio.knit.example.KnitStudio
+APP_NAME=Knit Studio
