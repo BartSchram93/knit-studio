@@ -52,9 +52,9 @@ The living record of the project: what is done, how it was verified, what is not
 | `:shared:jvmTest` — engine, conversion, validator, calculators, files, templates, companion, repository, migration, PDF | 139 | pass |
 | `:composeApp:jvmTest` — UI workflows and screenshot tour (headless) | 14 | pass |
 | `:androidApp:testDebugUnitTest` — Android Application/Activity start, Android SQLite driver (Robolectric) | 2 | pass |
-| `:shared:iosSimulatorArm64Test` — the shared engine tests on the iOS simulator (GitHub Actions, macOS) | all common tests | pass |
+| `:shared:iosSimulatorArm64Test` — the shared engine tests on the iOS simulator (GitHub Actions, macOS) | 119 | pass |
 | Xcode device build, IPA packaging and IPA structure checks (`scripts/build-ios-ipa.sh`, GitHub Actions, macOS) | — | pass |
-| `IosStorageTest` — database in Application Support, survives reopening (iOS simulator) | 1 | see CI |
+| …of which `IosStorageTest` — database in Application Support, survives reopening | 1 | pass |
 
 Other verification performed:
 - Debug and release APKs built; release APK inspected (`aapt2`: package `studio.knit.app`,
