@@ -189,6 +189,17 @@ class RowParser(private val library: StitchLibrary) {
      */
     private fun parseMultiplier(p: Cursor, afterRep: Boolean = false): Count? {
         p.skipSpace()
+        // Designers often write "(k1, p1) repeat to end" / "(…) rep 3 times": the word
+        // "repeat" belongs to the multiplier that follows it.
+        if (!afterRep) {
+            val lead = REPEAT_WORD.find(p.rest())
+            if (lead != null && lead.range.first == 0) {
+                val saved = p.i
+                p.i += lead.range.last + 1
+                parseMultiplier(p, afterRep = false)?.let { return it }
+                p.i = saved
+            }
+        }
         val rest = p.rest()
         for ((regex, make) in MULTIPLIERS) {
             val m = regex.find(rest) ?: continue
@@ -306,6 +317,7 @@ class RowParser(private val library: StitchLibrary) {
             RegexOption.IGNORE_CASE,
         )
         private val SIZE_LIST = Regex("\\s*\\d+(\\s*,\\s*\\d+)*\\s*")
+        private val REPEAT_WORD = Regex("^(?:rep|repeat)\\s+")
         private val REP_FROM = Regex("(?:and\\s+)?(?:rep|repeat)\\s+(?:from\\s+)?\\*+")
         private val COLOR = Regex("^(with|using|in)\\s+(mc|cc\\d?|[a-h])\\b[\\s:,]*")
         private val TBL = Regex("^([kp])\\s*(\\d+)\\s*tbl$")

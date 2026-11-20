@@ -158,7 +158,7 @@ object BuiltInStitches {
             description = "A twisted purl stitch.",
             instructions = "Purl the stitch through its back loop."),
         s("sl", "Slip stitch (yarn in back)", "sl", TWISTED, "vee", ws = "slwyif",
-            aliases = listOf("sl1", "slip", "slip 1", "sl1p", "sl1 wyib", "sl wyib", "sl1 pwise", "sl st"),
+            aliases = listOf("sl1", "s1", "slip", "slip 1", "sl1p", "sl1 wyib", "sl wyib", "sl1 pwise", "s1 pwise", "sl st"),
             description = "Moves a stitch across without working it, yarn held at the back.",
             instructions = "Slip the stitch purlwise with the yarn at the back of the work."),
         s("slwyif", "Slip stitch (yarn in front)", "sl wyif", TWISTED, "vee_bar", ws = "sl",

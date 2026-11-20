@@ -177,4 +177,15 @@ class ParserTest {
         assertTrue(skpo.instructions.contains("pass", ignoreCase = true) || skpo.instructions.contains("lift", ignoreCase = true))
         assertTrue(!lib.require("ssk").aliases.contains("skpo"))
     }
+
+    @Test fun designerPhrasingRepeatBeforeTheMultiplier() {
+        val r = parse("K3, (K2, S1, K2) repeat to last 3 sts, K3.")
+        assertTrue(r.errors.isEmpty(), r.errors.toString())
+        assertEquals(Count.ToEnd(SizedInt(3)), (r.nodes[1] as Node.Group).times)
+        assertEquals("sl", stitch((r.nodes[1] as Node.Group).body[1]).first)
+        assertEquals(Count.ToEnd(), (parse("(K1, P1) repeat to end of row.").nodes.single() as Node.Group).times)
+        assertEquals(Count.Fixed(3), (parse("(k2tog, yo) rep 3 times").nodes.single() as Node.Group).times)
+        // A misspelt instruction is still reported, not guessed.
+        assertTrue(parse("(K1, P1) repeat the last 4 sts").errors.isNotEmpty())
+    }
 }
