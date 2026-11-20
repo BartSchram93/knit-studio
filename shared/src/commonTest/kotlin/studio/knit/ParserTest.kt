@@ -102,7 +102,9 @@ class ParserTest {
         assertEquals("bo", stitch(parse("cast off 3 sts").nodes.single()).first)
         assertEquals("bo" to Count.Fixed(3), stitch(parse("BO 3 sts").nodes.single()))
         assertEquals("yo", stitch(parse("yfwd").nodes.single()).first)
-        assertEquals("ssk", stitch(parse("skpo").nodes.single()).first)
+        assertEquals("skpo", stitch(parse("skpo").nodes.single()).first)
+        assertEquals("skpo", stitch(parse("sl1 k1 psso").nodes.single()).first)
+        assertEquals("ssk", stitch(parse("ssk").nodes.single()).first)
         assertEquals("cdd", stitch(parse("s2kp").nodes.single()).first)
         assertEquals("ktbl" to Count.Fixed(1), stitch(parse("k1tbl").nodes.single()))
         assertEquals("ktbl" to Count.Fixed(3), stitch(parse("k3tbl").nodes.single()))
@@ -164,5 +166,15 @@ class ParserTest {
 
     @Test fun ukTerminologyPrints() {
         assertEquals("Cast off 3 sts", RowPrinter(uk = true).print(parse("BO 3 sts").nodes))
+    }
+
+    @Test fun skpoIsKeptAsWrittenAndHasItsOwnInstructions() {
+        val r = parse("K1, skpo, knit to last 3 sts, k2tog, k1")
+        assertTrue(r.errors.isEmpty(), r.errors.toString())
+        assertEquals("K1, skpo, knit to last 3 sts, k2tog, k1", RowPrinter().print(r.nodes))
+        val skpo = lib.require("skpo")
+        assertEquals(2 to 1, skpo.consumes to skpo.produces)
+        assertTrue(skpo.instructions.contains("pass", ignoreCase = true) || skpo.instructions.contains("lift", ignoreCase = true))
+        assertTrue(!lib.require("ssk").aliases.contains("skpo"))
     }
 }

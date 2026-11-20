@@ -27,6 +27,7 @@ class EvaluatorTest {
         assertEquals(1, eval("k1, yo, k1", 2).delta)
         assertEquals(-1, eval("k2tog, k1", 3).delta)
         assertEquals(-1, eval("ssk, k1", 3).delta)
+        assertEquals(-1, eval("skpo, k1", 3).delta)
         assertEquals(1, eval("kfb, k1", 2).delta)
         assertEquals(-2, eval("k1, cdd, k1", 5).delta)
         assertEquals(1, eval("k1, m1l, k1", 2).delta)
