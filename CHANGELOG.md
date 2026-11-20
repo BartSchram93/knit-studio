@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- **AltStore source**: every build on `main` publishes `altstore-source.json` with the "latest"
+  pre-release. Added once in AltStore › Sources, new versions appear as one-tap updates.
 - Needles have a **Brand** field. The stash groups needles into foldable folders per brand, with
   a by-size view, quick brand choice and "Add <brand> needle" that picks the next free size.
   Brands typed into the notes earlier can be moved to the new field in one step (only after
@@ -25,6 +27,10 @@
 - Simulator test for the iOS database location.
 
 ### Changed
+- iPhone builds are versioned `major.minor.<build>` (e.g. 1.0.57) so AltStore can recognise newer
+  builds. Android is unchanged.
+- The "latest" pre-release is updated in place instead of deleted and recreated, so its links
+  never disappear.
 - iOS bundle identifier fixed permanently to `studio.knit.app` (was a placeholder). The build
   refuses to run if it changes.
 - iOS database directory pinned explicitly to `Library/Application Support/databases` (the

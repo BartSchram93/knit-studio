@@ -91,6 +91,7 @@ jobs:
           path: |
             dist/*.ipa
             dist/ipa-info.txt
+            dist/ipa-meta.json
           if-no-files-found: error
       - name: Summary
         if: always()

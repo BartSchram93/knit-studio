@@ -20,6 +20,10 @@ OUT_DIR="${2:-dist}"
 # One version for both platforms: taken from the Android build file.
 VERSION="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' androidApp/build.gradle.kts | head -1)"
 [ -n "$VERSION" ] || { echo "error: could not read versionName from androidApp/build.gradle.kts"; exit 1; }
+# Every iPhone build gets its own version, major.minor.<build>, so AltStore can tell a newer
+# build from an older one and offer it as an update (it compares version numbers).
+VERSION_BASE="$(echo "$VERSION" | cut -d. -f1-2)"
+IOS_VERSION="$VERSION_BASE.$BUILD_NUMBER"
 
 CONFIGURED_ID="$(sed -n 's/^BUNDLE_ID *= *//p' iosApp/Configuration/Config.xcconfig | tr -d '[:space:]')"
 if [ "$CONFIGURED_ID" != "$EXPECTED_BUNDLE_ID" ]; then
@@ -30,12 +34,12 @@ fi
 
 DERIVED="build/ios"
 APP="$DERIVED/Build/Products/Release-iphoneos/KnitStudio.app"
-echo "Building Knit Studio $VERSION (build $BUILD_NUMBER) for iPhone, unsigned…"
+echo "Building Knit Studio $IOS_VERSION (build $BUILD_NUMBER) for iPhone, unsigned…"
 
 xcodebuild \
   -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Release \
   -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath "$DERIVED" \
-  MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+  MARKETING_VERSION="$IOS_VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" CODE_SIGN_ENTITLEMENTS="" \
   build
 
@@ -44,7 +48,7 @@ STAGE="build/ipa"
 rm -rf "$STAGE"
 mkdir -p "$STAGE/Payload" "$OUT_DIR"
 cp -R "$APP" "$STAGE/Payload/"
-NAME="KnitStudio-$VERSION-build$BUILD_NUMBER.ipa"
+NAME="KnitStudio-$IOS_VERSION.ipa"
 # An .ipa is a zip with Payload/<App>.app at its root; -y keeps symlinks intact.
 (cd "$STAGE" && zip -qry "$NAME" Payload)
 mv "$STAGE/$NAME" "$OUT_DIR/$NAME"
@@ -68,7 +72,7 @@ SIZE="$(du -h "$OUT_DIR/$NAME" | cut -f1)"
 echo
 echo "IPA checks"
 check "bundle identifier is $EXPECTED_BUNDLE_ID (found: $BUNDLE_ID)" "$([ "$BUNDLE_ID" = "$EXPECTED_BUNDLE_ID" ] && echo ok)"
-check "version $SHORT, build $BUILD" "$([ "$SHORT" = "$VERSION" ] && [ "$BUILD" = "$BUILD_NUMBER" ] && echo ok)"
+check "version $SHORT, build $BUILD" "$([ "$SHORT" = "$IOS_VERSION" ] && [ "$BUILD" = "$BUILD_NUMBER" ] && echo ok)"
 check "display name is plain ASCII ($DISPLAY) — AltStore rejects other names" "$(printf '%s' "$DISPLAY" | LC_ALL=C grep -q '[^ -~]' || echo ok)"
 check "executable $EXE present and built for arm64 ($ARCHS)" "$([ -f "$APP/$EXE" ] && [[ "$ARCHS" == *arm64* ]] && echo ok)"
 check "Payload/KnitStudio.app at the root of the IPA" "$(unzip -l "$OUT_DIR/$NAME" | grep -q ' Payload/KnitStudio.app/Info.plist$' && echo ok)"
@@ -93,6 +97,11 @@ size:           $SIZE
 commit:         ${GITHUB_SHA:-$(git rev-parse HEAD 2>/dev/null || echo unknown)}
 built:          $(date -u +%Y-%m-%dT%H:%MZ)
 INFO
+
+# Machine-readable facts for the AltStore source (scripts/make-altstore-source.py).
+cat > "$OUT_DIR/ipa-meta.json" <<META
+{"file": "$NAME", "version": "$SHORT", "build": "$BUILD", "bundleId": "$BUNDLE_ID", "minOS": "$MIN_OS", "size": $(stat -f%z "$OUT_DIR/$NAME" 2>/dev/null || stat -c%s "$OUT_DIR/$NAME")}
+META
 
 if [ "$fail" -ne 0 ]; then
   echo "error: the IPA failed one or more checks above"
