@@ -113,6 +113,8 @@ data class Needle(
     val material: String = "",
     val lengthCm: Double? = null,
     val notes: String = "",
+    /** Maker, e.g. "ChiaoGoo". Used to group the stash into folders. */
+    val brand: String = "",
 )
 
 /** A named body or garment measurement in centimetres, one value per size. */

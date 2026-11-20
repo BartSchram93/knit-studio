@@ -119,7 +119,11 @@ fun YarnSheet(initial: Yarn, isNew: Boolean, onSave: (Yarn) -> Unit, onDelete: (
 }
 
 @Composable
-fun NeedleSheet(initial: Needle, isNew: Boolean, onSave: (Needle) -> Unit, onDelete: (() -> Unit)?, onDismiss: () -> Unit) {
+fun NeedleSheet(
+    initial: Needle, isNew: Boolean, onSave: (Needle) -> Unit, onDelete: (() -> Unit)?, onDismiss: () -> Unit,
+    /** Brands already in use, offered as one-tap choices. */
+    brands: List<String> = emptyList(),
+) {
     val units = unitFormat()
     var n by remember { mutableStateOf(initial) }
     Sheet(if (isNew) "New needle" else "Needle", onDismiss, doneLabel = "Save", onDone = { onSave(n); onDismiss() }) {
@@ -139,6 +143,15 @@ fun NeedleSheet(initial: Needle, isNew: Boolean, onSave: (Needle) -> Unit, onDel
             }
             BoundField(n.material, { n = n.copy(material = it) }, Modifier.fillMaxWidth(), "Material", "Bamboo, steel, wood…")
         }
+        SectionHeader("Brand")
+        BoundField(n.brand, { n = n.copy(brand = it) }, Modifier.padding(horizontal = PagePadding).fillMaxWidth(), placeholder = "e.g. ChiaoGoo", capitalization = KeyboardCapitalization.Words)
+        if (brands.isNotEmpty()) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = PagePadding).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (b in brands) {
+                    studio.knit.ui.components.Chip(b, n.brand.trim().equals(b, ignoreCase = true), { n = n.copy(brand = b) })
+                }
+            }
+        }
         SectionHeader("Type")
         Group { PickerRow("Needle type", NeedleType.entries, n.type, { it.label }) { n = n.copy(type = it) } }
         SectionHeader("Notes")
@@ -157,6 +170,8 @@ fun yarnSummary(y: Yarn, units: studio.knit.calc.UnitFormat, uk: Boolean): Strin
     y.totalMeters?.let { units.yarn(it) },
 ).joinToString("  ·  ")
 
-fun needleSummary(n: Needle, units: studio.knit.calc.UnitFormat): String = listOfNotNull(
-    n.type.label, n.lengthCm?.let { units.length(it, 0) }, n.material.takeIf { it.isNotBlank() }, n.notes.takeIf { it.isNotBlank() },
+/** One line describing a needle; [withBrand] is false where the brand is already the heading. */
+fun needleSummary(n: Needle, units: studio.knit.calc.UnitFormat, withBrand: Boolean = true): String = listOfNotNull(
+    n.type.label, n.lengthCm?.let { units.length(it, 0) }, n.material.takeIf { it.isNotBlank() },
+    n.brand.trim().takeIf { withBrand && it.isNotEmpty() }, n.notes.takeIf { it.isNotBlank() },
 ).joinToString("  ·  ")

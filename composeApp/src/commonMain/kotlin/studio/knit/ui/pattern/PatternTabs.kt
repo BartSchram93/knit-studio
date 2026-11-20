@@ -306,14 +306,15 @@ private fun NeedleList(p: Pattern, editor: PatternEditor) {
                 if (stash.isEmpty()) { isNew = true; editing = Needle(id = newId(), sizeMm = p.gauge?.needleMm ?: 4.0) } else menu = true
             }
             Menu(menu, { menu = false }, listOf(MenuItem("New needle", Icons.Plus) { isNew = true; editing = Needle(id = newId()) }) +
-                stash.map { s -> MenuItem("From stash: ${Needles.label(s.sizeMm, units.imperial)} ${s.type.label.lowercase()}") { editor.update { it.copy(needles = it.needles + s.copy(id = newId())) } } })
+                studio.knit.stash.groupByBrand(stash).flatMap { it.needles }.map { s -> MenuItem("From stash: ${Needles.label(s.sizeMm, units.imperial)} ${s.type.label.lowercase()}" + (s.brand.trim().takeIf { it.isNotEmpty() }?.let { " · $it" } ?: "")) { editor.update { it.copy(needles = it.needles + s.copy(id = newId())) } } })
         }
     }
     editing?.let { n ->
         NeedleSheet(n, isNew,
             onSave = { saved -> editor.update { pat -> pat.copy(needles = if (pat.needles.any { it.id == saved.id }) pat.needles.map { if (it.id == saved.id) saved else it } else pat.needles + saved) } },
             onDelete = if (isNew) null else ({ editor.update { pat -> pat.copy(needles = pat.needles.filterNot { it.id == n.id }) } }),
-            onDismiss = { editing = null })
+            onDismiss = { editing = null },
+            brands = studio.knit.stash.knownBrands(stash + p.needles))
     }
 }
 
