@@ -18,3 +18,30 @@ fun MainViewController(): UIViewController = ComposeUIViewController { App(conta
 
 /** Called from Swift when the app moves to the background so pending edits are written. */
 fun flushPendingChanges() = container.flushAll()
+
+/**
+ * Implemented in Swift (LiveActivityController): shows the current row as a Live Activity on
+ * the lock screen. Plain parameters, so Swift sees simple types.
+ */
+interface LockScreenPresenter {
+    fun show(
+        patternId: String, patternName: String, part: String, row: String, instruction: String,
+        detail: String, fraction: Double, finished: Boolean, canGoBack: Boolean,
+    )
+    fun clear()
+}
+
+/** Called once from Swift at launch (iOS 17 and later). */
+fun setLockScreenPresenter(presenter: LockScreenPresenter) {
+    container.lockScreen = object : studio.knit.ui.app.LockScreenKnitting {
+        override fun show(glance: studio.knit.companion.KnitGlance) = presenter.show(
+            glance.patternId, glance.patternName, glance.part, glance.row, glance.instruction,
+            glance.detail, glance.fraction?.toDouble() ?: -1.0, glance.finished, glance.canGoBack,
+        )
+        override fun clear() = presenter.clear()
+    }
+}
+
+/** Back / Next pressed on the Live Activity; [done] is called once the change is saved. */
+fun stepFromLockScreen(patternId: String, delta: Int, done: () -> Unit) =
+    container.stepFromLockScreen(patternId, delta.coerceIn(-1, 1), done)
