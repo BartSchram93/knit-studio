@@ -278,9 +278,13 @@ fun evaluateSection(section: Section, sizeIndex: Int, library: StitchLibrary): S
     var side = section.firstRowSide
     seq.forEachIndexed { index, p ->
         val rowSide = if (section.construction == Construction.ROUND) Side.RS else side
-        val eval = if (p.parsed.isEmpty) {
+        val raw = if (p.parsed.isEmpty) null else evaluator.evaluate(p.parsed, current)
+        val eval = if (raw != null && section.importedFrom != null && p.parsed.errors.isNotEmpty()) {
+            // Imported rows in the designer's own words: follow them, but do not flag them as wrong.
+            raw.copy(issues = listOf(EvalIssue(Severity.INFO, "Not checked — the app does not understand: " + p.parsed.errors.joinToString("; ") { it.fragment })))
+        } else if (p.parsed.isEmpty) {
             RowEval(0, current ?: 0, emptyList(), listOf(EvalIssue(Severity.WARNING, "This row has no instructions yet")))
-        } else evaluator.evaluate(p.parsed, current)
+        } else raw!!
         out += ExpandedRow(index, index + 1, rowSide, p.source, p.via, p.iteration, p.total, p.parsed, current, eval)
         // Report each distinct problem once, on the row (or repeat) that caused it.
         if (p.via == null || p.iteration == 1) {
@@ -292,7 +296,8 @@ fun evaluateSection(section: Section, sizeIndex: Int, library: StitchLibrary): S
         } else if (eval.hasErrors && out.none { it !== out.last() && it.source.id == p.source.id && it.eval.issues == eval.issues }) {
             for (i in eval.issues) issues += SectionIssue(p.via.id, i.severity, "Repeat ${p.iteration} of ${p.total}, row ${index + 1}: ${i.message}")
         }
-        if (!p.parsed.isEmpty) current = eval.produced
+        // A row the app could not fully read gives no reliable count for the rows after it.
+        if (!p.parsed.isEmpty) current = if (p.parsed.errors.isEmpty()) eval.produced else null
         side = side.flipped()
     }
     return SectionEval(out, issues, start ?: out.firstOrNull()?.eval?.consumed, current)

@@ -267,7 +267,7 @@ class RowParser(private val library: StitchLibrary) {
         }
         // sl2 / slip 2 → sl ×2 (plain "sl1" is covered by aliases)
         SLIP_N.matchEntire(chunk)?.let { m ->
-            val def = library[if (m.groupValues[2].contains("wyif")) "slwyif" else "sl"] ?: return null
+            val def = library[if (m.groupValues[2].contains("wyif") || m.groupValues[2].contains("wyf")) "slwyif" else "sl"] ?: return null
             return Node.Stitch(def, Count.Fixed(m.groupValues[1].toInt()))
         }
         // "work 3 sts in pattern" style text is not interpretable.
@@ -300,6 +300,7 @@ class RowParser(private val library: StitchLibrary) {
         if (rest.isEmpty()) return Count.Fixed(1)
         parseSized(rest)?.let { return Count.Fixed(it) }
         TO_END.matchEntire(rest)?.let { return Count.ToEnd() }
+        TO_LAST_ONE.matchEntire(rest)?.let { return Count.ToEnd(SizedInt(1)) }
         TO_LAST.matchEntire(rest)?.let { m -> return parseSized(m.groupValues[1])?.let { Count.ToEnd(it) } }
         TIMES.matchEntire(rest)?.let { m -> return Count.Fixed(m.groupValues[1].toInt()) }
         return when (rest) {
@@ -319,10 +320,12 @@ class RowParser(private val library: StitchLibrary) {
         private val SIZE_LIST = Regex("\\s*\\d+(\\s*,\\s*\\d+)*\\s*")
         private val REPEAT_WORD = Regex("^(?:rep|repeat)\\s+")
         private val REP_FROM = Regex("(?:and\\s+)?(?:rep|repeat)\\s+(?:from\\s+)?\\*+")
-        private val COLOR = Regex("^(with|using|in)\\s+(mc|cc\\d?|[a-h])\\b[\\s:,]*")
+        private val COLOR = Regex("^(with|using|in)\\s+(?:yarn\\s+|colou?r\\s+)?(mc|cc\\d?|[a-h])\\b[\\s:,]*")
         private val TBL = Regex("^([kp])\\s*(\\d+)\\s*tbl$")
-        private val SLIP_N = Regex("^(?:sl|slip)\\s*(\\d+)((?:\\s*(?:wyib|wyif|pwise|purlwise))*)$")
+        private val SLIP_N = Regex("^(?:sl|slip|s)\\s*(\\d+)(?:\\s*sts?)?((?:\\s*(?:wyib|wyif|wyb|wyf|pwise|purlwise|kwise|knitwise))*)$")
         private val TO_END = Regex("(?:to|until)\\s+(?:the\\s+)?end(?:\\s+of\\s+(?:the\\s+)?(?:row|rnd|round))?|across|around|all")
+        /** "to the last stitch (on the needle)": one stitch left. */
+        private val TO_LAST_ONE = Regex("(?:to|until)\\s+(?:the\\s+)?last\\s+(?:st|stitch)(?:\\s+on\\s+the\\s+(?:left[- ]hand\\s+)?needle)?")
         private val TO_LAST = Regex("(?:to|until)\\s+(?:the\\s+)?last\\s+($SIZED)\\s*(?:sts?|stitches)?")
         private val TIMES = Regex("(?:x\\s*)?(\\d+)(?:\\s*(?:times|x))?")
 
@@ -346,6 +349,7 @@ class RowParser(private val library: StitchLibrary) {
             Count.Fixed(if (afterRep) SizedInt(n.values.map { it + 1 }) else n)
 
         private val MULTIPLIERS: List<Pair<Regex, (MatchResult, Boolean) -> Count?>> = listOf(
+            Regex("^(?:to|until)\\s+(?:the\\s+)?last\\s+(?:st|stitch)\\b(?:\\s+on\\s+the\\s+(?:left[- ]hand\\s+)?needle)?") to { _, _ -> Count.ToEnd(SizedInt(1)) },
             Regex("^(?:to|until)\\s+(?:the\\s+)?last\\s+($SIZED)\\s*(?:sts?|stitches)?") to { m, _ -> sized(m.groupValues[1])?.let { Count.ToEnd(it) } },
             Regex("^(?:to|until)\\s+(?:the\\s+)?end(?:\\s+of\\s+(?:the\\s+)?(?:row|rnd|round))?") to { _, _ -> Count.ToEnd() },
             Regex("^(?:across|around)\\b") to { _, _ -> Count.ToEnd() },

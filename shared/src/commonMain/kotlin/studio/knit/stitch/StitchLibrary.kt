@@ -162,7 +162,7 @@ object BuiltInStitches {
             description = "Moves a stitch across without working it, yarn held at the back.",
             instructions = "Slip the stitch purlwise with the yarn at the back of the work."),
         s("slwyif", "Slip stitch (yarn in front)", "sl wyif", TWISTED, "vee_bar", ws = "sl",
-            aliases = listOf("sl1 wyif", "slip 1 wyif", "sl1wyif"),
+            aliases = listOf("sl1 wyif", "slip 1 wyif", "sl1wyif", "sl1 wyf", "sl wyf", "sl1 st wyf", "sl 1 wyf", "s1 wyf"),
             description = "Moves a stitch across without working it, with the strand showing on the right side.",
             instructions = "Slip the stitch purlwise with the yarn at the front of the work."),
 

@@ -273,6 +273,11 @@ data class Section(
     val chartId: String? = null,
     /** True while the rows are exactly what was generated from [chartId]. */
     val generated: Boolean = false,
+    /**
+     * Name of the PDF these rows were read from. Rows of an imported section that the app does not
+     * understand are tracked but marked "not checked" instead of reported as errors.
+     */
+    val importedFrom: String? = null,
 )
 
 // ---------------------------------------------------------------------------------------------
