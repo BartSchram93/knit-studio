@@ -23,7 +23,7 @@ jobs:
     uses: ./.github/workflows/build.yml
 
   latest:
-    name: Publish "latest" pre-release
+    name: Publish "latest" pre-release and AltStore source
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -32,25 +32,53 @@ jobs:
     concurrency:
       group: publish-latest
       cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.build.outputs.version }}
+      BASE: https://github.com/${{ github.repository }}/releases/download/latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: dist
           pattern: KnitStudio-*
           merge-multiple: true
-      - name: Replace the "latest" pre-release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.build.outputs.version }}
+      - name: Write the AltStore source
         run: |
+          IOS_VERSION=$(python3 -c "import json; print(json.load(open('dist/ipa-meta.json'))['version'])")
+          echo "IOS_VERSION=$IOS_VERSION" >> "$GITHUB_ENV"
+          python3 scripts/make-altstore-source.py dist/ipa-meta.json "$BASE" dist/altstore-source.json \
+            "Build ${{ github.run_number }} from commit ${GITHUB_SHA::7}: $(git log -1 --format=%s)"
           ls -la dist
-          NOTES="Automatic build of \`main\` — version $VERSION, build ${{ github.run_number }}, commit ${GITHUB_SHA::7}, $(date -u +'%Y-%m-%d %H:%M UTC').
+      - name: Update the "latest" pre-release in place
+        # The release is updated rather than deleted and recreated, so the download links and the
+        # AltStore source URL never disappear, not even for a moment.
+        run: |
+          REPO="$GITHUB_REPOSITORY"
+          FILES=(dist/KnitStudio.ipa dist/KnitStudio-$IOS_VERSION.ipa dist/KnitStudio.apk dist/KnitStudio-$VERSION-build${{ github.run_number }}.apk dist/altstore-source.json dist/ipa-info.txt)
+          NOTES="Automatic build of \`main\` — iPhone $IOS_VERSION, Android $VERSION (build ${{ github.run_number }}), commit ${GITHUB_SHA::7}, $(date -u +'%Y-%m-%d %H:%M UTC').
 
-          - **iPhone:** \`KnitStudio.ipa\` (unsigned) — install or update it with AltStore, see IOS_ALTSTORE_SETUP.md.
+          - **iPhone, automatic updates:** add the AltStore source \`$BASE/altstore-source.json\` once (AltStore › Sources › +). See IOS_ALTSTORE_SETUP.md.
+          - **iPhone, manual:** \`KnitStudio.ipa\` (unsigned), install with AltStore › My Apps › +.
           - **Android:** \`KnitStudio.apk\` — see docs/INSTALL_ANDROID.md.
 
-          The versioned files are the same builds under their full names. This pre-release is replaced on every push to main; tagged releases (v*) stay."
-          gh release delete latest --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes || true
-          gh release create latest dist/*.ipa dist/*.apk dist/ipa-info.txt \
-            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
-            --title "Latest build — $VERSION (build ${{ github.run_number }})" --notes "$NOTES"
+          This pre-release is updated on every push to main; numbered releases (v*) stay."
+          if gh release view latest --repo "$REPO" >/dev/null 2>&1; then
+            # Point the tag at this commit, then replace the files.
+            gh api -X PATCH "repos/$REPO/git/refs/tags/latest" -f sha="$GITHUB_SHA" -F force=true >/dev/null
+            gh release upload latest "${FILES[@]}" --repo "$REPO" --clobber
+            gh release edit latest --repo "$REPO" --prerelease --title "Latest build — iPhone $IOS_VERSION · Android $VERSION" --notes "$NOTES"
+          else
+            gh release create latest "${FILES[@]}" --repo "$REPO" --target "$GITHUB_SHA" --prerelease \
+              --title "Latest build — iPhone $IOS_VERSION · Android $VERSION" --notes "$NOTES"
+          fi
+          # Remove files of older builds (versioned names) so only the current build is offered.
+          KEEP=$(printf '%s\n' "${FILES[@]}" | xargs -n1 basename)
+          gh release view latest --repo "$REPO" --json assets --jq '.assets[].name' | while read -r name; do
+            if ! grep -qxF "$name" <<< "$KEEP"; then gh release delete-asset latest "$name" --repo "$REPO" --yes; fi
+          done
+      - name: Check the published source
+        run: |
+          sleep 5
+          curl -fsSL "$BASE/altstore-source.json" | python3 -c "import json,sys; d=json.load(sys.stdin); v=d['apps'][0]['versions'][0]; print('AltStore source OK:', d['apps'][0]['bundleIdentifier'], v['version'], v['downloadURL'])"
+          curl -fsSLI -o /dev/null -w "IPA reachable: %{http_code}\n" "$BASE/KnitStudio-$IOS_VERSION.ipa"

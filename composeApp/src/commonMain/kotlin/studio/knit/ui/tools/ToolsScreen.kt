@@ -40,6 +40,19 @@ import studio.knit.model.Yarn
 import studio.knit.ui.app.LocalApp
 import studio.knit.ui.app.LocalNav
 import studio.knit.ui.app.unitFormat
+import studio.knit.stash.groupByBrand
+import studio.knit.stash.groupBySize
+import studio.knit.stash.knownBrands
+import studio.knit.stash.moveNotesToBrand
+import studio.knit.stash.needlesWithBrandInNotes
+import studio.knit.stash.nextCable
+import studio.knit.stash.nextInSet
+import studio.knit.model.Cable
+import studio.knit.model.NeedleType
+import studio.knit.ui.pattern.CableSheet
+import studio.knit.ui.pattern.cableSummary
+import studio.knit.ui.pattern.cableTitle
+import studio.knit.ui.components.ConfirmDialog
 import studio.knit.ui.components.Group
 import studio.knit.ui.components.Icons
 import studio.knit.ui.components.KIcon
@@ -56,6 +69,7 @@ import studio.knit.ui.components.Segmented
 import studio.knit.ui.components.SoftButton
 import studio.knit.ui.components.toDoubleLenient
 import studio.knit.ui.pattern.ColorDot
+import studio.knit.ui.pattern.YarnPhoto
 import studio.knit.ui.pattern.NeedleSheet
 import studio.knit.ui.pattern.YarnSheet
 import studio.knit.ui.pattern.needleSummary
@@ -394,16 +408,25 @@ private fun StashScreen() {
     val scope = rememberCoroutineScope()
     val yarns by app.repo.yarnStash.collectAsState(emptyList())
     val needles by app.repo.needleStash.collectAsState(emptyList())
+    val cables by app.repo.cableStash.collectAsState(emptyList())
+    var cable by remember { mutableStateOf<Cable?>(null) }
     var yarn by remember { mutableStateOf<Yarn?>(null) }
     var needle by remember { mutableStateOf<Needle?>(null) }
+    var needleView by rememberSaveable { mutableIntStateOf(0) }
+    // Open brand folders. A list, not a set, so it can be saved across configuration changes.
+    var expandedList by rememberSaveable { mutableStateOf(listOf<String>()) }
+    fun toggle(key: String) { expandedList = if (key in expandedList) expandedList - key else expandedList + key }
+    fun open(key: String) { if (key !in expandedList) expandedList = expandedList + key }
+    var confirmMove by remember { mutableStateOf(false) }
+    val inNotes = remember(needles) { needlesWithBrandInNotes(needles) }
 
     Page("Stash", onBack = nav::back, backLabel = "Tools", largeTitle = false) {
         item { SectionHeader("Yarn") }
         item {
             Group {
                 yarns.forEach { y ->
-                    ListRow(y.displayName, subtitle = yarnSummary(y, units, settings.ukTerms).ifBlank { null }, leading = { ColorDot(y.colorArgb, 26.dp) }, chevron = true) { yarn = y }
-                    RowDivider(54.dp)
+                    ListRow(y.displayName, subtitle = yarnSummary(y, units, settings.ukTerms).ifBlank { null }, leading = { YarnPhoto(y.photoId, y.colorArgb, 40.dp) }, chevron = true) { yarn = y }
+                    RowDivider(68.dp)
                 }
                 ListRow("Add yarn", titleColor = Knit.colors.accent, leading = { KIcon(Icons.Plus, Knit.colors.accent, 22.dp) }) { yarn = Yarn(id = newId()) }
             }
@@ -411,23 +434,130 @@ private fun StashScreen() {
             if (total > 0) SectionFooter("${units.yarn(total)} in ${yarns.size} ${if (yarns.size == 1) "yarn" else "yarns"}.")
         }
         item { SectionHeader("Needles") }
-        item {
-            Group {
-                needles.forEach { n ->
-                    ListRow(Needles.label(n.sizeMm, units.imperial), subtitle = needleSummary(n, units), leading = { KIcon(Icons.Needle, Knit.colors.secondaryLabel, 22.dp) }, chevron = true) { needle = n }
-                    RowDivider(50.dp)
-                }
-                ListRow("Add needle", titleColor = Knit.colors.accent, leading = { KIcon(Icons.Plus, Knit.colors.accent, 22.dp) }) { needle = Needle(id = newId()) }
-            }
-            SectionFooter("Items in your stash can be added to any pattern from its Materials tab.")
+        if (needles.isNotEmpty()) item {
+            Segmented(listOf("By brand", "By size"), needleView, { needleView = it }, Modifier.padding(horizontal = PagePadding).padding(bottom = 12.dp).fillMaxWidth())
         }
+        if (inNotes.isNotEmpty()) item {
+            Column(Modifier.padding(horizontal = PagePadding).padding(bottom = 12.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Knit.colors.accentSoft).padding(14.dp)) {
+                Text(
+                    "${inNotes.size} ${if (inNotes.size == 1) "needle has" else "needles have"} a brand written in the notes. Move it to the new Brand field so the needles are sorted into folders?",
+                    style = Knit.type.subhead, color = Knit.colors.label,
+                )
+                Spacer(Modifier.height(10.dp))
+                SoftButton("Move to Brand…", { confirmMove = true }, compact = true)
+            }
+        }
+        if (needleView == 0) {
+            val groups = groupByBrand(needles, cables)
+            items(groups.size, key = { "brand-" + groups[it].key }) { i ->
+                val g = groups[i]
+                val open = g.key in expandedList || groups.size == 1
+                Group(Modifier.padding(bottom = 10.dp)) {
+                    ListRow(
+                        g.brand.ifEmpty { "No brand" },
+                        leading = { KIcon(Icons.Folder, if (g.brand.isEmpty()) Knit.colors.secondaryLabel else Knit.colors.accent, 22.dp) },
+                        value = folderCount(g.needles.size, g.cables.size),
+                        trailing = { KIcon(if (open) Icons.ChevronDown else Icons.ChevronRight, Knit.colors.tertiaryLabel, 16.dp) },
+                    ) { toggle(g.key) }
+                    if (open) {
+                        g.needles.forEach { n ->
+                            RowDivider(50.dp)
+                            ListRow(Needles.label(n.sizeMm, units.imperial), subtitle = needleSummary(n, units, withBrand = false).ifBlank { null }, leading = { KIcon(Icons.Needle, Knit.colors.secondaryLabel, 22.dp) }, chevron = true) { needle = n }
+                        }
+                        if (g.brand.isNotEmpty()) {
+                            RowDivider(50.dp)
+                            ListRow("Add ${g.brand} needle", titleColor = Knit.colors.accent, leading = { KIcon(Icons.Plus, Knit.colors.accent, 22.dp) }) {
+                                needle = nextInSet(g.needles, Needles.sizes.map { it.mm }, newId()) ?: Needle(id = newId(), brand = g.brand)
+                            }
+                        }
+                        // Cables for interchangeable tips of this brand.
+                        if (g.cables.isNotEmpty() || g.needles.any { it.type == NeedleType.INTERCHANGEABLE }) {
+                            RowDivider(0.dp)
+                            Text("CABLES", style = Knit.type.overline, color = Knit.colors.secondaryLabel, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp))
+                            g.cables.forEach { c ->
+                                RowDivider(50.dp)
+                                ListRow(cableTitle(c, units), subtitle = cableSummary(c).ifBlank { null }, leading = { KIcon(Icons.Cable, Knit.colors.secondaryLabel, 22.dp) }, chevron = true) { cable = c }
+                            }
+                            if (g.brand.isNotEmpty()) {
+                                RowDivider(50.dp)
+                                ListRow("Add ${g.brand} cable", titleColor = Knit.colors.accent, leading = { KIcon(Icons.Plus, Knit.colors.accent, 22.dp) }) {
+                                    cable = nextCable(g.cables, g.brand, newId())
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            val sizes = groupBySize(needles)
+            items(sizes.size, key = { "size-" + sizes[it].first }) { i ->
+                val (mm, list) = sizes[i]
+                Text(Needles.label(mm, units.imperial), style = Knit.type.footnote.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = Knit.colors.secondaryLabel,
+                    modifier = Modifier.padding(start = PagePadding + 4.dp, bottom = 6.dp, top = if (i == 0) 0.dp else 8.dp))
+                Group {
+                    list.forEachIndexed { k, n ->
+                        if (k > 0) RowDivider(50.dp)
+                        ListRow(n.brand.trim().ifEmpty { "No brand" }, subtitle = needleSummary(n, units, withBrand = false).ifBlank { null }, leading = { KIcon(Icons.Needle, Knit.colors.secondaryLabel, 22.dp) }, chevron = true) { needle = n }
+                    }
+                }
+            }
+        }
+        if (needleView == 1 && cables.isNotEmpty()) item {
+            Text("Cables", style = Knit.type.footnote.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = Knit.colors.secondaryLabel,
+                modifier = Modifier.padding(start = PagePadding + 4.dp, bottom = 6.dp, top = 8.dp))
+            Group(Modifier.padding(bottom = 6.dp)) {
+                cables.sortedWith(compareBy({ it.lengthCm }, { studio.knit.stash.brandKey(it.brand) })).forEachIndexed { k, c ->
+                    if (k > 0) RowDivider(50.dp)
+                    ListRow(cableTitle(c, units), subtitle = listOf(c.brand.trim().ifEmpty { "No brand" }, cableSummary(c)).filter { it.isNotBlank() }.joinToString("  ·  "),
+                        leading = { KIcon(Icons.Cable, Knit.colors.secondaryLabel, 22.dp) }, chevron = true) { cable = c }
+                }
+            }
+        }
+        item {
+            Group(Modifier.padding(top = 4.dp)) {
+                ListRow("Add needle", titleColor = Knit.colors.accent, leading = { KIcon(Icons.Plus, Knit.colors.accent, 22.dp) }) { needle = Needle(id = newId()) }
+                RowDivider(50.dp)
+                ListRow("Add cable", subtitle = "For interchangeable needle tips", titleColor = Knit.colors.accent, leading = { KIcon(Icons.Plus, Knit.colors.accent, 22.dp) }) { cable = Cable(id = newId()) }
+            }
+            val brandCount = groupByBrand(needles, cables).count { it.brand.isNotEmpty() }
+            SectionFooter(
+                (if (needles.isNotEmpty()) "${needles.size} ${if (needles.size == 1) "needle" else "needles"}" + (if (brandCount > 0) " from $brandCount ${if (brandCount == 1) "brand" else "brands"}" else "") + ". " else "") +
+                    "Items in your stash can be added to any pattern from its Materials tab.",
+            )
+        }
+    }
+    if (confirmMove) {
+        ConfirmDialog(
+            "Move notes to Brand?",
+            "For these needles the note becomes the brand and the note is cleared:\n" +
+                inNotes.groupBy { it.notes.trim() }.entries.joinToString("\n") { (b, l) -> "• $b (${l.size})" },
+            "Move", { scope.launch { inNotes.forEach { app.repo.saveNeedle(moveNotesToBrand(it)) }; app.message("Needles sorted by brand") } },
+            { confirmMove = false },
+        )
     }
     yarn?.let { y ->
         val isNew = yarns.none { it.id == y.id }
-        YarnSheet(y, isNew, { scope.launch { app.repo.saveYarn(it) } }, if (isNew) null else ({ scope.launch { app.repo.deleteStash(y.id) } }), { yarn = null })
+        YarnSheet(y, isNew, { scope.launch { app.repo.saveYarn(it) } }, if (isNew) null else ({ scope.launch { app.repo.deleteYarn(y) } }), { yarn = null }, allowPhoto = true)
     }
     needle?.let { n ->
         val isNew = needles.none { it.id == n.id }
-        NeedleSheet(n, isNew, { scope.launch { app.repo.saveNeedle(it) } }, if (isNew) null else ({ scope.launch { app.repo.deleteStash(n.id) } }), { needle = null })
+        NeedleSheet(n, isNew, { saved ->
+            scope.launch { app.repo.saveNeedle(saved) }
+            // Show the folder the needle went into.
+            studio.knit.stash.brandKey(saved.brand).takeIf { it.isNotEmpty() }?.let { open(it) }
+        }, if (isNew) null else ({ scope.launch { app.repo.deleteStash(n.id) } }), { needle = null }, brands = knownBrands(needles, cables))
     }
+    cable?.let { c ->
+        val isNew = cables.none { it.id == c.id }
+        CableSheet(c, isNew, { saved ->
+            scope.launch { app.repo.saveCable(saved) }
+            studio.knit.stash.brandKey(saved.brand).takeIf { it.isNotEmpty() }?.let { open(it) }
+        }, if (isNew) null else ({ scope.launch { app.repo.deleteStash(c.id) } }), { cable = null }, brands = knownBrands(needles, cables))
+    }
+}
+
+private fun folderCount(needles: Int, cables: Int): String = when {
+    cables == 0 -> "$needles"
+    needles == 0 -> "$cables ${if (cables == 1) "cable" else "cables"}"
+    else -> "$needles · $cables ${if (cables == 1) "cable" else "cables"}"
 }

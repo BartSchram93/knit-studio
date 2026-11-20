@@ -93,6 +93,8 @@ data class Yarn(
     val gramsPerSkein: Double? = null,
     val skeins: Double? = null,
     val notes: String = "",
+    /** Photo of the yarn (stash only), stored in the image table. */
+    val photoId: String? = null,
 ) {
     val displayName: String
         get() = listOf(brand, name).filter { it.isNotBlank() }.joinToString(" ").ifBlank { "Untitled yarn" }
@@ -112,6 +114,25 @@ data class Needle(
     val type: NeedleType = NeedleType.CIRCULAR,
     val material: String = "",
     val lengthCm: Double? = null,
+    val notes: String = "",
+    /** Maker, e.g. "ChiaoGoo". Used to group the stash into folders. */
+    val brand: String = "",
+)
+
+/**
+ * A cable for interchangeable needle tips. Cables belong to a brand rather than to one needle:
+ * any tip of the brand (with a matching connector) fits on it.
+ */
+@Serializable
+data class Cable(
+    val id: String,
+    val brand: String = "",
+    /** Length as printed on the cable or its packaging. */
+    val lengthCm: Double = 80.0,
+    /** Connector or cable size where a brand has several, e.g. "[S]" or "small". */
+    val connector: String = "",
+    val count: Int = 1,
+    val material: String = "",
     val notes: String = "",
 )
 

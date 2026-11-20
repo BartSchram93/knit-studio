@@ -36,7 +36,7 @@ One Kotlin Multiplatform codebase builds both apps.
 | | |
 |---|---|
 | Android | Debug and release APKs build and are installable. App start-up and database verified under Robolectric. |
-| iOS | CI builds an unsigned IPA for AltStore and checks its structure; shared tests (including on-device storage) pass on the iOS simulator. **Not yet installed on an iPhone** — see [Install on iPhone](#install-on-iphone). |
+| iOS | CI builds an unsigned IPA for AltStore and checks its structure; shared tests (including on-device storage) pass on the iOS simulator. Installed and in use via AltStore — see [Install on iPhone](#install-on-iphone). |
 | Tests | 155 automated tests: knitting engine, persistence and migration, file format, PDF, UI workflows, Android runtime. |
 
 Details, known issues and the roadmap live in [docs/PROJECT.md](docs/PROJECT.md).
@@ -47,15 +47,15 @@ Knit Studio installs on your own iPhone with **AltStore Classic** and a **free A
 Windows or Mac computer. No paid developer account and no App Store are needed.
 
 1. Set up AltServer on the PC and AltStore on the iPhone (one time).
-2. Download the newest build: **[KnitStudio.ipa](https://github.com/BartSchram93/knit-studio/releases/download/latest/KnitStudio.ipa)**
-   ([release page](https://github.com/BartSchram93/knit-studio/releases/tag/latest)). It is
-   rebuilt on every push to `main`.
-3. AltStore › *My Apps* › **+** › choose the file. To update later, do the same with a newer
-   file. It replaces the app and keeps your patterns.
-4. AltStore re-signs the app automatically before the 7-day limit, whenever AltServer is reachable.
+2. In AltStore › **Sources** › **+**, add
+   `https://github.com/BartSchram93/knit-studio/releases/download/latest/altstore-source.json`.
+   New builds then show up as updates in AltStore. Alternatively, install
+   **[KnitStudio.ipa](https://github.com/BartSchram93/knit-studio/releases/download/latest/KnitStudio.ipa)**
+   by hand via *My Apps* › **+**.
+3. AltStore re-signs the app automatically before the 7-day limit, whenever AltServer is reachable.
+   Updates keep your patterns.
 
 Full step-by-step guide, data-safety rules and troubleshooting: **[IOS_ALTSTORE_SETUP.md](IOS_ALTSTORE_SETUP.md)**.
-Installation through AltStore has not yet been tested on a real iPhone.
 
 ## Install on Android
 
@@ -109,4 +109,4 @@ scripts/       build-ios-ipa.sh — builds and checks the IPA for AltStore
 - [File format](docs/FILE_FORMAT.md) · [Design system](design/DESIGN.md)
 - [Project log, test results, known issues](docs/PROJECT.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md)
 
-Knit Studio is a private, personal project. It contains no network code, analytics or secrets.
+Knit Studio is a personal project. The app contains no network code, analytics or secrets.

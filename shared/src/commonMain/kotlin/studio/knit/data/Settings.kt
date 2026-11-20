@@ -16,12 +16,14 @@ data class Settings(
     val pdfLandscape: Boolean = false,
     val haptics: Boolean = true,
     val keepScreenOn: Boolean = true,
+    /** Tint rows worked from the wrong side on flat charts. */
+    val shadeWsRows: Boolean = true,
     val lastBackupAt: Long = 0,
 ) {
     fun toMap(): Map<String, String> = mapOf(
         "imperial" to imperial.toString(), "ukTerms" to ukTerms.toString(), "theme" to theme.name,
         "paper" to paper.name, "pdfLandscape" to pdfLandscape.toString(), "haptics" to haptics.toString(),
-        "keepScreenOn" to keepScreenOn.toString(), "lastBackupAt" to lastBackupAt.toString(),
+        "keepScreenOn" to keepScreenOn.toString(), "shadeWsRows" to shadeWsRows.toString(), "lastBackupAt" to lastBackupAt.toString(),
     )
 
     companion object {
@@ -35,6 +37,7 @@ data class Settings(
                 pdfLandscape = m["pdfLandscape"]?.toBooleanStrictOrNull() ?: d.pdfLandscape,
                 haptics = m["haptics"]?.toBooleanStrictOrNull() ?: d.haptics,
                 keepScreenOn = m["keepScreenOn"]?.toBooleanStrictOrNull() ?: d.keepScreenOn,
+                shadeWsRows = m["shadeWsRows"]?.toBooleanStrictOrNull() ?: d.shadeWsRows,
                 lastBackupAt = m["lastBackupAt"]?.toLongOrNull() ?: d.lastBackupAt,
             )
         }

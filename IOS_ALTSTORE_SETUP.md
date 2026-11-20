@@ -4,9 +4,10 @@ This guide installs Knit Studio on your own iPhone with **AltStore Classic**, a 
 and a **Windows 11** PC. No paid Apple Developer membership, no App Store.
 
 > **Status.** The iOS app is built and checked automatically by GitHub Actions (see
-> [What has been verified](#what-has-been-verified)). Installing it through AltStore on a real
-> iPhone has **not yet been tested**. If a step below does not match what you see, the official
-> AltStore documentation linked in each step is the authority.
+> [What has been verified](#what-has-been-verified)). Installing it through AltStore works on the
+> owner's iPhone. Updating through the AltStore source (step 9) is new and has not been tried on
+> a phone yet. If a step below does not match what you see, the official AltStore documentation
+> linked in each step is the authority.
 
 ## How it works, in one minute
 
@@ -29,7 +30,7 @@ and a **Windows 11** PC. No paid Apple Developer membership, no App Store.
 | An iPhone with iOS 16 or later | Knit Studio requires iOS 16. The current AltStore Classic (2.3.x) requires **iOS 17.4 or later**; for older iOS versions see the [AltStore release notes](https://faq.altstore.io/release-notes/altstore) for which version to use. *Settings › General › About* shows your iOS version. |
 | An Apple ID | Your normal one works. Some people use a separate Apple ID just for sideloading. Use **the same Apple ID every time** — see [Rules that protect your data](#rules-that-protect-your-data). |
 | A USB cable | For the first setup. Later, Wi-Fi is enough. |
-| Access to the GitHub repository | The repository is private, so downloads need you to be signed in to GitHub. |
+| Nothing else | The repository is public: downloads and the AltStore source need no GitHub account. |
 
 ---
 
@@ -90,10 +91,12 @@ The release page — with the version, build number and date — is
 Numbered releases (`v1.0.0`, …) appear on the
 [Releases page](https://github.com/BartSchram93/knit-studio/releases) when they are published.
 
+You only need this file for the manual route. With the AltStore source (step 9) you never
+download anything yourself.
+
 Get the file onto the iPhone in either of these ways:
 
-- **Directly on the iPhone (simplest):** open the link in Safari, sign in to GitHub when asked,
-  and download. The file lands in *Files › Downloads*.
+- **Directly on the iPhone (simplest):** open the link in Safari and download it. The file lands in *Files › Downloads*.
 - **Via the PC:** download it in your browser, then put it in the *iCloud Drive* folder in
   Windows Explorer (you installed iCloud in step 1). On the iPhone it shows up in
   *Files › iCloud Drive*.
@@ -160,18 +163,48 @@ and PC together, tap *Refresh All*, and it opens again with everything intact.
 
 ---
 
-## 9. Updating Knit Studio without losing anything
+## 9. Updates: add the Knit Studio source once
 
-An update is the same as step 5 with a newer IPA. Because the new build has the **same bundle
-identifier** (`studio.knit.app`, enforced by the build) and is signed with the **same Apple ID**,
-iOS replaces the app and keeps its data folder, which holds your patterns, photos, custom
-stitches, stash and settings.
+Every new build is published to an **AltStore source**. Once AltStore follows it, new versions
+appear on the phone and install with one tap — no downloading, no computer steps (AltServer
+still has to be reachable, as for any install).
 
-1. **Back up first** (one minute, see below). Updates should never lose data, but a backup costs
-   nothing.
-2. Download the new `KnitStudio.ipa` (step 4).
-3. AltStore › *My Apps* › **+** › choose the new IPA. **Do not delete the old app first.**
-4. Open Knit Studio. *Settings › About* shows the version. Check that your patterns are there.
+**Set up (once):**
+
+1. On the iPhone, open **AltStore › Sources** and tap **+**.
+2. Enter this address and add it:
+
+   **https://github.com/BartSchram93/knit-studio/releases/download/latest/altstore-source.json**
+
+3. AltStore may warn that the source is not from a trusted developer. It is this project's own
+   build, so confirm.
+
+**Each update:**
+
+1. **Back up first** — Knit Studio › *Settings › Back up everything* (see below). Updates should
+   never lose data, but a backup costs a minute.
+2. AltStore › **My Apps**: when a new version is available, Knit Studio shows an **Update**
+   button (pull down to check). Tap it.
+3. Open Knit Studio. *Settings › About* shows the new version, e.g. `1.0.57 (57)`. Check that
+   your patterns are there.
+
+Each build has its own version number, `1.0.<build>`, so AltStore can tell which one is newer.
+
+If you installed Knit Studio manually before adding the source, AltStore should recognise it as
+the same app because the bundle identifier (`studio.knit.app`) matches. If it offers to
+*install* rather than *update* Knit Studio, make a backup first; the install then replaces the
+existing app in the same way as a manual update.
+
+### Updating manually (without the source)
+
+Use the same steps as in step 5, with the newer IPA from step 4: AltStore › *My Apps* › **+** ›
+choose the new file. **Do not delete the old app first.**
+
+### Why your data survives an update
+
+The new build has the **same bundle identifier** (`studio.knit.app`, enforced by the build) and
+is signed with the **same Apple ID**. iOS therefore replaces the app and keeps its data folder,
+which holds your patterns, photos, custom stitches, stash and settings.
 
 If a **second** Knit Studio icon appears instead of the old one being replaced, something changed
 the app's identity — usually a different Apple ID or the "Randomize Bundle IDs" setting. Do not
@@ -222,7 +255,7 @@ Official references:
 | **Knit Studio does not open (icon greyed out or closes immediately)** | It has expired. AltStore › *My Apps* › **Refresh All** with AltServer reachable. Do **not** delete it — your data is still inside. |
 | **Opening the `.ipa` in Files does nothing / "cannot be installed"** | The IPA is unsigned on purpose; install it only through AltStore's **+** in *My Apps* |
 | **AltStore itself expired** | Plug the phone into the PC, AltServer tray icon › **Install AltStore** again. Installed apps and their data stay. |
-| **A second Knit Studio appeared after an update** | See [Updating](#9-updating-knit-studio-without-losing-anything) — back up in the old one, restore in the new one |
+| **A second Knit Studio appeared after an update** | See [Updating](#9-updates-add-the-knit-studio-source-once) — back up in the old one, restore in the new one |
 | **"Your session has expired" / Apple ID errors** | Sign out of AltStore (*Settings*) and sign in again with the same Apple ID. If Apple asks, update the password in AltStore as well |
 
 Still stuck? Note the error code and message and look it up on the
@@ -239,19 +272,21 @@ Still stuck? Note the error code and message and look it up on the
 | IPA structure: `Payload/KnitStudio.app` at the root, bundle ID `studio.knit.app`, arm64 executable, version and build number, ASCII app name, no app extensions, no provisioning profile, no paid-only entitlements | `scripts/build-ios-ipa.sh` on every build; the build fails if any check fails | automated |
 | Bundle identifier cannot change by accident | The build refuses to run if `Config.xcconfig` differs from `studio.knit.app` | automated |
 | Android APKs still build and tests pass | GitHub Actions | automated |
-| AltStore installs, signs and refreshes the IPA on an iPhone | — | **not tested** |
+| AltStore installs, signs and refreshes the IPA on an iPhone | Done by the owner on a real iPhone (Knit Studio is in daily use) | **works** |
+| Updating through the AltStore source | The CI job checks that the source and the IPA download are reachable; the update on the phone has not been tried yet | **not tested on a device** |
 | An update over an installed version keeps the data | Reasoned from how iOS and AltStore handle identical bundle IDs, plus the storage test above | **not tested on a device** |
 | iOS share sheet, Files picker and photo picker | — | **not tested on a device** |
 
-Please test the [update procedure](#9-updating-knit-studio-without-losing-anything) once early on,
-with a backup made and only a test pattern in the app, before you rely on it with real work.
+Make a backup before the first update through the source (step 9).
 
-## Why not fully automatic updates?
+## How automatic is it now?
 
-AltStore can follow an app *source* and offer updates on the phone. That needs the IPA at a
-public download address. This repository is private, and its downloads require a GitHub login
-that AltStore cannot provide. So the one manual step that remains for a new **version** is
-downloading the IPA and choosing it in AltStore. The weekly **refresh** is fully automatic.
+| Step | Automatic? |
+|---|---|
+| Building the iPhone and Android apps after each change | Yes — GitHub Actions |
+| Telling the phone a new version exists | Yes — the AltStore source |
+| Installing an update | One tap on **Update** in AltStore |
+| Re-signing every 7 days | Yes — AltStore background refresh, while AltServer is reachable |
 
 ## For developers
 

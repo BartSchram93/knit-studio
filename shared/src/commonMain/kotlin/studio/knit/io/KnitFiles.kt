@@ -9,6 +9,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import studio.knit.chart.MAX_CHART_SIZE
 import studio.knit.model.Cell
+import studio.knit.model.Cable
 import studio.knit.model.Chart
 import studio.knit.model.Needle
 import studio.knit.model.Pattern
@@ -52,6 +53,7 @@ data class BackupFile(
     val collections: List<PatternCollection> = emptyList(),
     val yarnStash: List<Yarn> = emptyList(),
     val needleStash: List<Needle> = emptyList(),
+    val cableStash: List<Cable> = emptyList(),
     val settings: Map<String, String> = emptyMap(),
 )
 
@@ -131,13 +133,50 @@ object KnitFiles {
         data class Bad(val reason: String) : Opened
     }
 
-    private fun open(text: String, expectedFormat: String, noun: String): Opened {
-        val element = try {
-            json.parseToJsonElement(text.trim().removePrefix("﻿"))
-        } catch (e: Exception) {
-            return Opened.Bad("This is not a Knit Studio file")
+    /**
+     * Recognises common files that are picked by mistake, from their first bytes, and says what
+     * they are. Null when the bytes could be a Knit Studio file.
+     */
+    fun identifyOtherFile(bytes: ByteArray): String? {
+        fun starts(vararg b: Int) = bytes.size >= b.size && b.indices.all { (bytes[it].toInt() and 0xFF) == b[it] }
+        return when {
+            bytes.isEmpty() -> "The file is empty. If it is stored in iCloud Drive, open it once in the Files app so it is downloaded, then try again"
+            starts(0x25, 0x50, 0x44, 0x46) -> PDF_REASON
+            starts(0x50, 0x4B, 0x03, 0x04) -> "This is a compressed (zip) file or an Office document. If it is a zip, unzip it first and choose the .knit file inside"
+            starts(0xFF, 0xD8, 0xFF) || starts(0x89, 0x50, 0x4E, 0x47) || starts(0x47, 0x49, 0x46, 0x38) -> "This is a photo, not a Knit Studio file"
+            starts(0x7B, 0x5C, 0x72, 0x74, 0x66) -> RTF_REASON
+            starts(0xD0, 0xCF, 0x11, 0xE0) -> "This is an Office document, not a Knit Studio file"
+            else -> null
         }
-        var obj = element as? JsonObject ?: return Opened.Bad("This is not a Knit Studio file")
+    }
+
+    private const val PDF_REASON =
+        "This is a PDF document. Knit Studio can open only .knit pattern files and .knitbackup backups made by Knit Studio — PDF patterns cannot be imported"
+    private const val RTF_REASON =
+        "Another app has converted this file to formatted text (RTF). Export the pattern from Knit Studio again and share it as a file"
+
+    /** Explains, as specifically as possible, why [text] is not a Knit Studio file. */
+    private fun notJsonReason(text: String): String {
+        val start = text.take(30).map { if (it.isLetterOrDigit() || it in " {}[]:\",.-_#<>%") it else '·' }.joinToString("")
+        return when {
+            text.startsWith("%PDF") -> PDF_REASON
+            text.startsWith("{\\rtf") -> RTF_REASON
+            text.startsWith("<") -> "This is a web page or XML document, not a Knit Studio file"
+            text.startsWith("{") -> "The file looks like a Knit Studio file but is incomplete or damaged — it may have been cut off while being copied or sent. Export it again"
+            else -> "This is not a Knit Studio file (it starts with “$start”)"
+        }
+    }
+
+    private fun open(text: String, expectedFormat: String, noun: String): Opened {
+        // Tolerate a byte-order mark, stray NUL bytes and surrounding whitespace added by other apps.
+        val clean = text.trimStart('\uFEFF', '\u0000', ' ', '\n', '\r', '\t').trimEnd('\u0000', ' ', '\n', '\r', '\t')
+        if (clean.isEmpty()) return Opened.Bad("The file is empty")
+        val element = try {
+            json.parseToJsonElement(clean)
+        } catch (e: Exception) {
+            return Opened.Bad(notJsonReason(clean))
+        }
+        var obj = element as? JsonObject ?: return Opened.Bad("This file contains data, but not a Knit Studio pattern or backup")
         val format = (obj["format"] as? JsonPrimitive)?.content
         if (format != expectedFormat) {
             return Opened.Bad(

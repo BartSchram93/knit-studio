@@ -75,6 +75,9 @@ fun SettingsScreen() {
                 SwitchRow("Haptic feedback", settings.haptics, { v -> set { it.copy(haptics = v) } }, "A light tick when drawing stitches and counting rows")
                 RowDivider()
                 SwitchRow("Keep screen on while knitting", settings.keepScreenOn, { v -> set { it.copy(keepScreenOn = v) } })
+                RowDivider()
+                SwitchRow("Tint wrong-side chart rows", settings.shadeWsRows, { v -> set { it.copy(shadeWsRows = v) } },
+                    "Rows knitted from the wrong side get a faint colour, so the reading direction is easy to see")
             }
         }
         item { SectionHeader("PDF export") }
@@ -102,8 +105,13 @@ fun SettingsScreen() {
                 ListRow("Restore from a backup", subtitle = "Open a .knitbackup file", leading = { KIcon(Icons.Import, Knit.colors.accent, 22.dp) }) {
                     platform.pickFile { file ->
                         if (file == null) return@pickFile
+                        KnitFiles.identifyOtherFile(file.bytes)?.let { app.message("“${file.name}”: $it"); return@pickFile }
                         val text = runCatching { file.bytes.decodeToString() }.getOrDefault("")
-                        if (!KnitFiles.isBackup(text)) app.message("That file is not a Knit Studio backup") else pendingRestore = text
+                        when {
+                            KnitFiles.isBackup(text) -> pendingRestore = text
+                            text.take(400).contains(KnitFiles.PATTERN_FORMAT) -> app.message("“${file.name}” is a single pattern, not a backup. Open it with New › Import a Knit Studio file")
+                            else -> app.message("“${file.name}” is not a Knit Studio backup")
+                        }
                     }
                 }
             }

@@ -65,8 +65,8 @@ jobs:
       - name: Read version
         id: version
         run: echo "version=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' androidApp/build.gradle.kts | head -1)" >> "$GITHUB_OUTPUT"
-      - name: Shared tests on the iOS simulator (incl. on-device storage location)
-        run: ./gradlew :shared:iosSimulatorArm64Test
+      - name: Tests on the iOS simulator (engine, storage location, file export/import)
+        run: ./gradlew :shared:iosSimulatorArm64Test :composeApp:iosSimulatorArm64Test
       - name: List iOS simulator test results
         if: always()
         run: |
@@ -74,7 +74,7 @@ jobs:
           import glob, re
           total = failed = 0
           print("### iOS simulator tests\n")
-          for path in sorted(glob.glob("shared/build/test-results/iosSimulatorArm64Test/*.xml")):
+          for path in sorted(glob.glob("*/build/test-results/iosSimulatorArm64Test/*.xml")):
               text = open(path).read()
               m = re.search(r'name="([^"]+)" tests="(\d+)" skipped="\d+" failures="(\d+)" errors="(\d+)"', text)
               if not m: continue
@@ -91,6 +91,7 @@ jobs:
           path: |
             dist/*.ipa
             dist/ipa-info.txt
+            dist/ipa-meta.json
           if-no-files-found: error
       - name: Summary
         if: always()

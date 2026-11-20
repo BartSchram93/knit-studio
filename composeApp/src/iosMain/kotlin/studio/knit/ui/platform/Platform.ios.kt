@@ -43,11 +43,11 @@ import platform.darwin.dispatch_get_main_queue
 import platform.posix.memcpy
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
-private fun ByteArray.toNSData(): NSData =
+internal fun ByteArray.toNSData(): NSData =
     if (isEmpty()) NSData() else usePinned { NSData.create(bytes = it.addressOf(0), length = size.toULong()) }
 
 @OptIn(ExperimentalForeignApi::class)
-private fun NSData.toByteArray(): ByteArray {
+internal fun NSData.toByteArray(): ByteArray {
     val size = length.toInt()
     val out = ByteArray(size)
     if (size > 0) out.usePinned { memcpy(it.addressOf(0), bytes, length) }
@@ -60,9 +60,22 @@ private fun topController(): UIViewController? {
     return controller
 }
 
-private fun tempFile(name: String, bytes: ByteArray): NSURL? {
+/** Writes [bytes] to a temporary file to hand to the share sheet or the Files app. */
+internal fun tempFile(name: String, bytes: ByteArray): NSURL? {
     val url = NSURL.fileURLWithPath(NSTemporaryDirectory() + name)
     return if (bytes.toNSData().writeToURL(url, atomically = true)) url else null
+}
+
+/** Reads a file chosen in the Files picker. */
+internal fun readPickedFile(url: NSURL): PickedFile? {
+    // Files outside the app's sandbox need explicit access while they are read.
+    val scoped = url.startAccessingSecurityScopedResource()
+    try {
+        val data = NSData.dataWithContentsOfURL(url) ?: return null
+        return PickedFile(url.lastPathComponent ?: "file", data.toByteArray())
+    } finally {
+        if (scoped) url.stopAccessingSecurityScopedResource()
+    }
 }
 
 @OptIn(ExperimentalForeignApi::class)
@@ -92,8 +105,7 @@ private class IosActions : PlatformActions {
         val delegate = object : NSObject(), UIDocumentPickerDelegateProtocol {
             override fun documentPicker(controller: UIDocumentPickerViewController, didPickDocumentsAtURLs: List<*>) {
                 val url = didPickDocumentsAtURLs.firstOrNull() as? NSURL
-                val data = url?.let { NSData.dataWithContentsOfURL(it) }
-                onResult(if (url != null && data != null) PickedFile(url.lastPathComponent ?: "file", data.toByteArray()) else null)
+                onResult(url?.let { readPickedFile(it) })
                 documentDelegate = null
             }
 

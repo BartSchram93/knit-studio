@@ -40,6 +40,8 @@ data class PdfOptions(
     val charts: Boolean = true,
     val legend: Boolean = true,
     val notes: Boolean = true,
+    /** Tint wrong-side rows of flat charts. */
+    val shadeWsRows: Boolean = true,
     val imperial: Boolean = false,
     val uk: Boolean = false,
     /** Accent colour for rules, repeat boxes and headings (ARGB). */
@@ -280,6 +282,7 @@ class PatternPdf(
                     needle.type.label.lowercase(),
                     needle.lengthCm?.let { units.length(it, 0) },
                     needle.material.takeIf { it.isNotBlank() }?.lowercase(),
+                    needle.brand.trim().takeIf { it.isNotEmpty() },
                     needle.notes.takeIf { it.isNotBlank() },
                 )
                 paragraph("•  " + parts.joinToString(", "))
@@ -480,6 +483,11 @@ class PatternPdf(
         fun cellTop(row: Int) = topY + (rowTop - row) * cell
         val fontSize = (cell * 0.5f).coerceIn(5f, 8f)
 
+        // Wrong-side rows of flat charts get a faint tint (drawn first, so colourwork covers it).
+        if (options.shadeWsRows && chart.construction == Construction.FLAT) {
+            pdf.fillColor(WS_TINT)
+            for (r in rowBottom..rowTop) if (chart.sideOf(r) == Side.WS) pdf.rect(x0, cellTop(r), chart.cols * cell, cell, fill = true, stroke = false)
+        }
         // Cell backgrounds and symbols.
         for (r in rowBottom..rowTop) for (c in 0 until chart.cols) {
             val cellData = chart.cell(r, c)
@@ -624,6 +632,15 @@ class PatternPdf(
                 y += lineH
             }
         }
+        if (options.shadeWsRows && chart.construction == Construction.FLAT && chart.rows > 1) {
+            ensure(lineH)
+            pdf.fillColor(WS_TINT); pdf.strokeColor(0xFF8E8E93); pdf.lineWidth(0.4f)
+            pdf.rect(left, y, cell * 2, cell, fill = true, stroke = true)
+            pdf.fillColor(ink)
+            val wsDir = if (chart.rsDirection == Direction.RIGHT_TO_LEFT) "left to right" else "right to left"
+            pdf.text(left + cell * 2 + 10f, y + cell * 0.72f, "Wrong-side row (read $wsDir)", Font.REGULAR, 9.5f)
+            y += lineH
+        }
         if (chart.repeats.isNotEmpty()) {
             ensure(lineH)
             pdf.strokeColor(options.accent); pdf.lineWidth(1.6f)
@@ -644,5 +661,10 @@ class PatternPdf(
             pdf.text(left, pageH - margin + 18f, pattern.displayName, Font.REGULAR, 8.5f)
             pdf.textRight(right, pageH - margin + 18f, "${i - bodyStartPage + 1} / ${total - bodyStartPage}", Font.REGULAR, 8.5f)
         }
+    }
+
+    private companion object {
+        /** Warm, light tint for wrong-side rows; prints as a pale grey on black-and-white printers. */
+        const val WS_TINT = 0xFFF5EBE6
     }
 }

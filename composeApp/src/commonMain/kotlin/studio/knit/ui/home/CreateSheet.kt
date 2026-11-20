@@ -113,17 +113,18 @@ fun CreateSheet(onDismiss: () -> Unit) {
                 Group {
                     ListRow("Template", subtitle = "Scarf, hat, lace, cables — sized from your gauge", leading = { IconTile(Icons.Sparkle) }, chevron = true) { step = Step.TEMPLATES }
                     RowDivider(62.dp)
-                    ListRow("Import a file", subtitle = "Open a .knit pattern from another device", leading = { IconTile(Icons.Import) }, chevron = true) {
+                    ListRow("Import a Knit Studio file", subtitle = "A .knit pattern exported from Knit Studio, e.g. on another phone. PDF patterns can’t be imported", leading = { IconTile(Icons.Import) }, chevron = true) {
                         platform.pickFile { file ->
                             if (file == null) return@pickFile
                             scope.launch {
+                                KnitFiles.identifyOtherFile(file.bytes)?.let { app.message("“${file.name}”: $it"); return@launch }
                                 val text = runCatching { file.bytes.decodeToString() }.getOrDefault("")
                                 if (KnitFiles.isBackup(text)) {
                                     app.message("That is a full backup. Restore it from Settings")
                                     return@launch
                                 }
                                 when (val r = app.repo.importPattern(text)) {
-                                    is ImportOutcome.Failed -> app.message(r.reason)
+                                    is ImportOutcome.Failed -> app.message("“${file.name}”: ${r.reason}")
                                     is ImportOutcome.Imported -> {
                                         app.message(if (r.warnings.isEmpty()) "Imported “${r.pattern.displayName}”" else "Imported with ${r.warnings.size} repair${if (r.warnings.size == 1) "" else "s"}")
                                         onDismiss()

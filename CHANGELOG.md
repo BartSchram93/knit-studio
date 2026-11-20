@@ -3,6 +3,27 @@
 ## Unreleased
 
 ### Added
+- **AltStore source**: every build on `main` publishes `altstore-source.json` with the "latest"
+  pre-release. Added once in AltStore › Sources, new versions appear as one-tap updates.
+- Needles have a **Brand** field. The stash groups needles into foldable folders per brand, with
+  a by-size view, quick brand choice and "Add <brand> needle" that picks the next free size.
+  Brands typed into the notes earlier can be moved to the new field in one step (only after
+  confirming; nothing changes on its own).
+- **Photo of the yarn** in the stash, shown instead of the colour dot in the list. Photos are
+  included in backups and removed together with the yarn.
+- The export sheet separates **PDF to print** from **Knit Studio file** and says which one can be imported again.
+- Clear import messages: picking a PDF, zip, photo or a damaged file now says what the file is,
+  with its name. The import button is labelled "Import a Knit Studio file". Files with a
+  byte-order mark or trailing NUL bytes are accepted.
+- **Cables for interchangeable needles**: cables are stash items of their own (length, connector,
+  material, number), shown inside the brand folder next to the tips, with "Add <brand> cable".
+  For interchangeable needles the length field is now labelled **Tip length**. Cables are
+  included in backups; older backups restore unchanged.
+- Wrong-side rows of flat charts get a faint tint on screen and in PDFs (Settings › Appearance,
+  and an option in PDF export), with an entry in the PDF stitch key.
+- **skpo** (slip 1, knit 1, pass over) is its own stitch with its own instructions. It was
+  previously treated as another name for ssk. Same stitch count and chart symbol; rows already
+  written as "skpo" keep their wording.
 - iPhone installation with AltStore Classic and a free Apple ID: `IOS_ALTSTORE_SETUP.md`.
 - `scripts/build-ios-ipa.sh`: builds the unsigned IPA and checks bundle ID, version, architecture,
   app name, extensions, provisioning and entitlements.
@@ -12,6 +33,10 @@
 - Simulator test for the iOS database location.
 
 ### Changed
+- iPhone builds are versioned `major.minor.<build>` (e.g. 1.0.57) so AltStore can recognise newer
+  builds. Android is unchanged.
+- The "latest" pre-release is updated in place instead of deleted and recreated, so its links
+  never disappear.
 - iOS bundle identifier fixed permanently to `studio.knit.app` (was a placeholder). The build
   refuses to run if it changes.
 - iOS database directory pinned explicitly to `Library/Application Support/databases` (the

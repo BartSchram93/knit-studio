@@ -1,5 +1,15 @@
 package studio.knit.ui.pattern
 
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.width
+import kotlinx.coroutines.launch
+import studio.knit.ui.components.Icons
+import studio.knit.ui.components.SoftButton
+import studio.knit.ui.components.TextBtn
+import studio.knit.ui.platform.decodeImage
+import studio.knit.ui.platform.rememberPlatformActions
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -30,7 +40,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import studio.knit.calc.Needles
 import studio.knit.calc.pretty
+import studio.knit.model.Cable
 import studio.knit.model.Needle
+import studio.knit.stash.CommonCableLengthsCm
 import studio.knit.model.NeedleType
 import studio.knit.model.Yarn
 import studio.knit.model.YarnWeight
@@ -42,6 +54,7 @@ import studio.knit.ui.components.Group
 import studio.knit.ui.components.PagePadding
 import studio.knit.ui.components.PickerRow
 import studio.knit.ui.components.PrimaryButton
+import studio.knit.ui.components.SectionFooter
 import studio.knit.ui.components.SectionHeader
 import studio.knit.ui.components.Sheet
 import studio.knit.ui.components.pressable
@@ -76,11 +89,54 @@ fun ColorGrid(selected: Long?, onSelect: (Long) -> Unit, modifier: Modifier = Mo
 
 /** Edits one yarn. Used for pattern materials and for the stash. */
 @Composable
-fun YarnSheet(initial: Yarn, isNew: Boolean, onSave: (Yarn) -> Unit, onDelete: (() -> Unit)?, onDismiss: () -> Unit) {
+fun YarnSheet(
+    initial: Yarn, isNew: Boolean, onSave: (Yarn) -> Unit, onDelete: (() -> Unit)?, onDismiss: () -> Unit,
+    /** Offer a photo of the yarn (used in the stash). */
+    allowPhoto: Boolean = false,
+) {
     val settings by LocalApp.current.settings.collectAsState()
     val units = unitFormat()
     var y by remember { mutableStateOf(initial) }
-    Sheet(if (isNew) "New yarn" else "Yarn", onDismiss, doneLabel = "Save", onDone = { onSave(y); onDismiss() }) {
+    val app = LocalApp.current
+    val scope = rememberCoroutineScope()
+    val platform = rememberPlatformActions()
+    // A photo taken in this sheet is stored at once; it is removed again if the sheet is cancelled.
+    var saved by remember { mutableStateOf(false) }
+    val close: () -> Unit = {
+        if (!saved && y.photoId != null && y.photoId != initial.photoId) { val id = y.photoId!!; scope.launch { app.repo.deleteImage(id) } }
+        onDismiss()
+    }
+    Sheet(if (isNew) "New yarn" else "Yarn", close, doneLabel = "Save", onDone = {
+        saved = true
+        initial.photoId?.takeIf { it != y.photoId }?.let { old -> scope.launch { app.repo.deleteImage(old) } }
+        onSave(y)
+        onDismiss()
+    }) {
+        if (allowPhoto) {
+            Row(Modifier.padding(horizontal = PagePadding).padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                YarnPhoto(y.photoId, y.colorArgb, 96.dp)
+                Spacer(Modifier.width(16.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SoftButton(if (y.photoId == null) "Add photo" else "Replace photo", {
+                        platform.pickImage { bytes ->
+                            if (bytes == null) return@pickImage
+                            scope.launch {
+                                val previous = y.photoId
+                                val id = app.repo.addStashPhoto(bytes)
+                                y = y.copy(photoId = id)
+                                // Replaced again before saving: drop the intermediate photo.
+                                if (previous != null && previous != initial.photoId) app.repo.deleteImage(previous)
+                            }
+                        }
+                    }, icon = Icons.Photo, compact = true)
+                    if (y.photoId != null) TextBtn("Remove photo", {
+                        val current = y.photoId
+                        y = y.copy(photoId = null)
+                        if (current != null && current != initial.photoId) scope.launch { app.repo.deleteImage(current) }
+                    }, color = Knit.colors.error)
+                }
+            }
+        }
         Column(Modifier.padding(horizontal = PagePadding).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 BoundField(y.brand, { y = y.copy(brand = it) }, Modifier.weight(1f), "Brand", "e.g. Holst", capitalization = KeyboardCapitalization.Words)
@@ -119,7 +175,11 @@ fun YarnSheet(initial: Yarn, isNew: Boolean, onSave: (Yarn) -> Unit, onDelete: (
 }
 
 @Composable
-fun NeedleSheet(initial: Needle, isNew: Boolean, onSave: (Needle) -> Unit, onDelete: (() -> Unit)?, onDismiss: () -> Unit) {
+fun NeedleSheet(
+    initial: Needle, isNew: Boolean, onSave: (Needle) -> Unit, onDelete: (() -> Unit)?, onDismiss: () -> Unit,
+    /** Brands already in use, offered as one-tap choices. */
+    brands: List<String> = emptyList(),
+) {
     val units = unitFormat()
     var n by remember { mutableStateOf(initial) }
     Sheet(if (isNew) "New needle" else "Needle", onDismiss, doneLabel = "Save", onDone = { onSave(n); onDismiss() }) {
@@ -135,12 +195,23 @@ fun NeedleSheet(initial: Needle, isNew: Boolean, onSave: (Needle) -> Unit, onDel
         Column(Modifier.padding(horizontal = PagePadding).padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 BoundNumberField(n.sizeMm, { v -> if (v != null && v > 0) n = n.copy(sizeMm = v) }, Modifier.weight(1f), "Diameter", "mm", decimals = 2)
-                BoundNumberField(n.lengthCm?.let { units.lengthValue(it) }, { v -> n = n.copy(lengthCm = v?.takeIf { it > 0 }?.let { units.toCm(it) }) }, Modifier.weight(1f), "Length", units.lengthUnit, decimals = 0)
+                BoundNumberField(n.lengthCm?.let { units.lengthValue(it) }, { v -> n = n.copy(lengthCm = v?.takeIf { it > 0 }?.let { units.toCm(it) }) }, Modifier.weight(1f),
+                    if (n.type == NeedleType.INTERCHANGEABLE) "Tip length" else "Length", units.lengthUnit, decimals = 0)
             }
             BoundField(n.material, { n = n.copy(material = it) }, Modifier.fillMaxWidth(), "Material", "Bamboo, steel, wood…")
         }
+        SectionHeader("Brand")
+        BoundField(n.brand, { n = n.copy(brand = it) }, Modifier.padding(horizontal = PagePadding).fillMaxWidth(), placeholder = "e.g. ChiaoGoo", capitalization = KeyboardCapitalization.Words)
+        if (brands.isNotEmpty()) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = PagePadding).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (b in brands) {
+                    studio.knit.ui.components.Chip(b, n.brand.trim().equals(b, ignoreCase = true), { n = n.copy(brand = b) })
+                }
+            }
+        }
         SectionHeader("Type")
         Group { PickerRow("Needle type", NeedleType.entries, n.type, { it.label }) { n = n.copy(type = it) } }
+        if (n.type == NeedleType.INTERCHANGEABLE) SectionFooter("Length is the length of the tips. Add the cables you own separately, under the brand in Stash.")
         SectionHeader("Notes")
         BoundField(n.notes, { n = n.copy(notes = it) }, Modifier.padding(horizontal = PagePadding).fillMaxWidth(), placeholder = "e.g. for the ribbing")
         if (onDelete != null) {
@@ -157,6 +228,75 @@ fun yarnSummary(y: Yarn, units: studio.knit.calc.UnitFormat, uk: Boolean): Strin
     y.totalMeters?.let { units.yarn(it) },
 ).joinToString("  ·  ")
 
-fun needleSummary(n: Needle, units: studio.knit.calc.UnitFormat): String = listOfNotNull(
-    n.type.label, n.lengthCm?.let { units.length(it, 0) }, n.material.takeIf { it.isNotBlank() }, n.notes.takeIf { it.isNotBlank() },
+/** One line describing a needle; [withBrand] is false where the brand is already the heading. */
+fun needleSummary(n: Needle, units: studio.knit.calc.UnitFormat, withBrand: Boolean = true): String = listOfNotNull(
+    n.type.label, n.lengthCm?.let { units.length(it, 0) + if (n.type == NeedleType.INTERCHANGEABLE) " tips" else "" }, n.material.takeIf { it.isNotBlank() },
+    n.brand.trim().takeIf { withBrand && it.isNotEmpty() }, n.notes.takeIf { it.isNotBlank() },
 ).joinToString("  ·  ")
+
+/** "80 cm cable" — the way cables are labelled. */
+fun cableTitle(c: Cable, units: studio.knit.calc.UnitFormat): String = "${units.length(c.lengthCm, 0)} cable"
+
+fun cableSummary(c: Cable): String = listOfNotNull(
+    c.connector.trim().takeIf { it.isNotEmpty() }, c.material.trim().takeIf { it.isNotEmpty() },
+    c.count.takeIf { it > 1 }?.let { "×$it" }, c.notes.trim().takeIf { it.isNotEmpty() },
+).joinToString("  ·  ")
+
+/** Edits a cable for interchangeable needle tips. */
+@Composable
+fun CableSheet(initial: Cable, isNew: Boolean, onSave: (Cable) -> Unit, onDelete: (() -> Unit)?, onDismiss: () -> Unit, brands: List<String> = emptyList()) {
+    val units = unitFormat()
+    var c by remember { mutableStateOf(initial) }
+    Sheet(if (isNew) "New cable" else "Cable", onDismiss, doneLabel = "Save", onDone = { onSave(c); onDismiss() }) {
+        SectionHeader("Length")
+        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = PagePadding), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (l in CommonCableLengthsCm) {
+                studio.knit.ui.components.Chip(units.length(l, 0), kotlin.math.abs(c.lengthCm - l) < 0.5, { c = c.copy(lengthCm = l) })
+            }
+        }
+        BoundNumberField(units.lengthValue(c.lengthCm), { v -> if (v != null && v > 0) c = c.copy(lengthCm = units.toCm(v)) },
+            Modifier.padding(horizontal = PagePadding).padding(top = 12.dp).fillMaxWidth(), "Length", units.lengthUnit, decimals = 0)
+        SectionFooter("As printed on the cable or its packaging.")
+        SectionHeader("Brand")
+        BoundField(c.brand, { c = c.copy(brand = it) }, Modifier.padding(horizontal = PagePadding).fillMaxWidth(), placeholder = "e.g. ChiaoGoo", capitalization = KeyboardCapitalization.Words)
+        if (brands.isNotEmpty()) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = PagePadding).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (b in brands) studio.knit.ui.components.Chip(b, c.brand.trim().equals(b, ignoreCase = true), { c = c.copy(brand = b) })
+            }
+        }
+        SectionHeader("Details")
+        Column(Modifier.padding(horizontal = PagePadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                BoundField(c.connector, { c = c.copy(connector = it) }, Modifier.weight(1f), "Connector / size", "e.g. [S] or small", capitalization = KeyboardCapitalization.None)
+                BoundField(c.material, { c = c.copy(material = it) }, Modifier.weight(1f), "Material", "e.g. steel, nylon")
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Group { studio.knit.ui.components.Stepper(c.count, { c = c.copy(count = it) }, 1..20, Modifier.padding(horizontal = 16.dp, vertical = 8.dp), "How many") }
+        SectionHeader("Notes")
+        BoundField(c.notes, { c = c.copy(notes = it) }, Modifier.padding(horizontal = PagePadding).fillMaxWidth(), placeholder = "e.g. swivel, from the Twist set")
+        if (onDelete != null) {
+            Spacer(Modifier.height(22.dp))
+            PrimaryButton("Remove cable", { onDelete(); onDismiss() }, Modifier.padding(horizontal = PagePadding).fillMaxWidth(), destructive = true)
+        }
+    }
+}
+
+/** The yarn's photo when it has one, otherwise its colour. */
+@Composable
+fun YarnPhoto(photoId: String?, colorArgb: Long?, size: Dp = 26.dp) {
+    val app = LocalApp.current
+    val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, photoId) {
+        value = photoId?.let { id -> app.repo.image(id)?.let { decodeImage(it) } }
+    }
+    val image = bitmap
+    if (image != null) {
+        androidx.compose.foundation.Image(
+            image, "Photo of the yarn",
+            Modifier.size(size).clip(androidx.compose.foundation.shape.RoundedCornerShape(size * 0.22f)),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        )
+    } else {
+        ColorDot(colorArgb, size)
+    }
+}

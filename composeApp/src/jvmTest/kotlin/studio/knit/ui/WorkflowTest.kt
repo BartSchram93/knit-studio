@@ -129,7 +129,7 @@ class WorkflowTest {
         assertTrue(pdf.decodeToString(0, 8).startsWith("%PDF-1.4"))
         assertTrue(pdf.size > 3_000)
 
-        tap("Pattern file"); tap("Share file")
+        tap("Knit Studio file"); tap("Share file")
         waitUntil(timeoutMillis = 5_000) { DesktopPlatform.written.size == 2 }
         val file = DesktopPlatform.written[1]
         assertTrue(file.first.endsWith(".knit"))
@@ -141,7 +141,7 @@ class WorkflowTest {
     @Test fun importAPatternFileThroughTheUi() = knitUiTest { env ->
         val source = Pattern(id = "from-other-phone", name = "Travelling Mitts", notes = "made on another device")
         DesktopPlatform.nextFile = PickedFile("Travelling Mitts.knit", KnitFiles.encodePattern(source).encodeToByteArray())
-        tap("New pattern"); tap("Import a file")
+        tap("New pattern"); tap("Import a Knit Studio file")
         waitUntil(timeoutMillis = 5_000) { runBlocking { env.repo.patterns.first().isNotEmpty() } }
         waitForIdle()
         assertShown("Travelling Mitts")

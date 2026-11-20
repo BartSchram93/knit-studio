@@ -16,6 +16,7 @@ import studio.knit.db.KnitDatabase
 import studio.knit.io.BackupFile
 import studio.knit.io.ImportResult
 import studio.knit.io.KnitFiles
+import studio.knit.model.Cable
 import studio.knit.model.Needle
 import studio.knit.model.Pattern
 import studio.knit.model.PatternCollection
@@ -136,6 +137,17 @@ class KnitRepository(
     suspend fun image(id: String): ByteArray? = withContext(io) { q.selectImage(id).executeAsOneOrNull() }
     suspend fun deleteImage(id: String) = withContext(io) { q.deleteImage(id) }
 
+    /** Stores a photo for a stash item and returns its id. */
+    suspend fun addStashPhoto(bytes: ByteArray): String = addImage(STASH_IMAGES, bytes)
+
+    /** Removes a yarn from the stash together with its photo. */
+    suspend fun deleteYarn(y: Yarn) = withContext(io) {
+        db.transaction {
+            y.photoId?.let { q.deleteImage(it) }
+            q.deleteStash(y.id)
+        }
+    }
+
     // --- Stitch library ----------------------------------------------------------------------
 
     private fun customStitchesNow(): List<StitchDef> =
@@ -180,6 +192,12 @@ class KnitRepository(
 
     suspend fun saveYarn(y: Yarn) = withContext(io) { q.upsertStash(y.id, KIND_YARN, json.encodeToString(Yarn.serializer(), y)) }
     suspend fun saveNeedle(n: Needle) = withContext(io) { q.upsertStash(n.id, KIND_NEEDLE, json.encodeToString(Needle.serializer(), n)) }
+
+    val cableStash: Flow<List<Cable>> = q.selectStash(KIND_CABLE).asFlow().mapToList(io).map { rows ->
+        rows.mapNotNull { runCatching { json.decodeFromString(Cable.serializer(), it.json) }.getOrNull() }.sortedBy { it.lengthCm }
+    }
+
+    suspend fun saveCable(c: Cable) = withContext(io) { q.upsertStash(c.id, KIND_CABLE, json.encodeToString(Cable.serializer(), c)) }
     suspend fun deleteStash(id: String) = withContext(io) { q.deleteStash(id) }
 
     // --- Settings ----------------------------------------------------------------------------
@@ -256,6 +274,7 @@ class KnitRepository(
             collections = q.selectCollections().executeAsList().map { PatternCollection(it.id, it.name, it.sort_index.toInt()) },
             yarnStash = q.selectStash(KIND_YARN).executeAsList().mapNotNull { runCatching { json.decodeFromString(Yarn.serializer(), it.json) }.getOrNull() },
             needleStash = q.selectStash(KIND_NEEDLE).executeAsList().mapNotNull { runCatching { json.decodeFromString(Needle.serializer(), it.json) }.getOrNull() },
+            cableStash = q.selectStash(KIND_CABLE).executeAsList().mapNotNull { runCatching { json.decodeFromString(Cable.serializer(), it.json) }.getOrNull() },
             settings = settingsNow().toMap(),
         )
         val images = q.selectAllImages().executeAsList().associate { it.id to it.bytes }
@@ -283,10 +302,15 @@ class KnitRepository(
                         q.upsertPattern(p.id, p.name, p.updatedAt, json.encodeToString(Pattern.serializer(), p))
                         for (imageId in p.imageIds) r.images[imageId]?.let { q.upsertImage(imageId, p.id, it) }
                     }
+                    // Photos of stash yarn.
+                    for (y in b.yarnStash) {
+                        y.photoId?.let { id -> r.images[id]?.let { q.upsertImage(id, STASH_IMAGES, it) } }
+                    }
                     for (s in b.customStitches) q.upsertStitch(s.id, json.encodeToString(StitchDef.serializer(), s.copy(builtIn = false)))
                     for (c in b.collections) q.upsertCollection(c.id, c.name, c.sortIndex.toLong())
                     for (y in b.yarnStash) q.upsertStash(y.id, KIND_YARN, json.encodeToString(Yarn.serializer(), y))
                     for (n in b.needleStash) q.upsertStash(n.id, KIND_NEEDLE, json.encodeToString(Needle.serializer(), n))
+                    for (c in b.cableStash) q.upsertStash(c.id, KIND_CABLE, json.encodeToString(Cable.serializer(), c))
                     if (replace) for ((k, v) in Settings.fromMap(b.settings).toMap()) q.upsertSetting(k, v)
                 }
                 RestoreSummary(b.patterns.size, b.customStitches.size, r.warnings)
@@ -347,5 +371,8 @@ class KnitRepository(
     private companion object {
         const val KIND_YARN = "yarn"
         const val KIND_NEEDLE = "needle"
+        /** Owner id under which stash photos are stored in the image table. */
+        const val STASH_IMAGES = "stash"
+        const val KIND_CABLE = "cable"
     }
 }

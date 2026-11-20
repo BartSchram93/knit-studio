@@ -71,6 +71,8 @@ object Icons {
     val Ruler = stroke("ruler", "M3 15L15 3l6 6L9 21z", "M7 13l2 2", "M10 10l2 2", "M13 7l2 2")
     val Calculator = stroke("calculator", "M6 3h12v18H6z", "M9 7h6", "M9 11.5h.2", "M12 11.5h.2", "M15 11.5h.2", "M9 15h.2", "M12 15h.2", "M15 15h.2", "M9 18h.2", "M12 18h3.2")
     val Yarn = stroke("yarn", "M12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16z", "M6 8c4 1 8 5 9 11", "M4.5 13c4 0 7 2 9 6.5", "M9 4.6c5 1 9 5 10 10")
+    /** A coiled cable joining two connectors. */
+    val Cable = stroke("cable", "M5 19h3", "M16 19h3", "M8 19c0-5 2-8 4-8s4 3 4 8", "M12 11V6", "M10 6h4")
     val Needle = stroke("needle", "M4 20L18.5 5.5", "M17 4l3 3", "M9 20L20 9")
     val Filter = stroke("filter", "M4 6h16", "M7 12h10", "M10 18h4", width = 2f)
     val Sort = stroke("sort", "M7 5v14", "M4 16l3 3 3-3", "M17 19V5", "M14 8l3-3 3 3")
