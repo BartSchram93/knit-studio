@@ -93,6 +93,8 @@ data class Yarn(
     val gramsPerSkein: Double? = null,
     val skeins: Double? = null,
     val notes: String = "",
+    /** Photo of the yarn (stash only), stored in the image table. */
+    val photoId: String? = null,
 ) {
     val displayName: String
         get() = listOf(brand, name).filter { it.isNotBlank() }.joinToString(" ").ifBlank { "Untitled yarn" }

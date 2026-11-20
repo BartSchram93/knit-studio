@@ -141,7 +141,7 @@ class WorkflowTest {
     @Test fun importAPatternFileThroughTheUi() = knitUiTest { env ->
         val source = Pattern(id = "from-other-phone", name = "Travelling Mitts", notes = "made on another device")
         DesktopPlatform.nextFile = PickedFile("Travelling Mitts.knit", KnitFiles.encodePattern(source).encodeToByteArray())
-        tap("New pattern"); tap("Import a file")
+        tap("New pattern"); tap("Import a Knit Studio file")
         waitUntil(timeoutMillis = 5_000) { runBlocking { env.repo.patterns.first().isNotEmpty() } }
         waitForIdle()
         assertShown("Travelling Mitts")

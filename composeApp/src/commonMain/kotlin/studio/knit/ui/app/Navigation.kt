@@ -99,7 +99,8 @@ private fun MessageBanner() {
     LaunchedEffect(app) {
         app.messages.collect { message ->
             text = message
-            delay(2600)
+            // Longer messages stay longer, so they can be read.
+            delay((2400L + message.length * 45L).coerceAtMost(9000L))
             if (text == message) text = null
         }
     }

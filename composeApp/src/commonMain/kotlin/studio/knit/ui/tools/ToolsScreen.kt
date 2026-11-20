@@ -69,6 +69,7 @@ import studio.knit.ui.components.Segmented
 import studio.knit.ui.components.SoftButton
 import studio.knit.ui.components.toDoubleLenient
 import studio.knit.ui.pattern.ColorDot
+import studio.knit.ui.pattern.YarnPhoto
 import studio.knit.ui.pattern.NeedleSheet
 import studio.knit.ui.pattern.YarnSheet
 import studio.knit.ui.pattern.needleSummary
@@ -424,8 +425,8 @@ private fun StashScreen() {
         item {
             Group {
                 yarns.forEach { y ->
-                    ListRow(y.displayName, subtitle = yarnSummary(y, units, settings.ukTerms).ifBlank { null }, leading = { ColorDot(y.colorArgb, 26.dp) }, chevron = true) { yarn = y }
-                    RowDivider(54.dp)
+                    ListRow(y.displayName, subtitle = yarnSummary(y, units, settings.ukTerms).ifBlank { null }, leading = { YarnPhoto(y.photoId, y.colorArgb, 40.dp) }, chevron = true) { yarn = y }
+                    RowDivider(68.dp)
                 }
                 ListRow("Add yarn", titleColor = Knit.colors.accent, leading = { KIcon(Icons.Plus, Knit.colors.accent, 22.dp) }) { yarn = Yarn(id = newId()) }
             }
@@ -536,7 +537,7 @@ private fun StashScreen() {
     }
     yarn?.let { y ->
         val isNew = yarns.none { it.id == y.id }
-        YarnSheet(y, isNew, { scope.launch { app.repo.saveYarn(it) } }, if (isNew) null else ({ scope.launch { app.repo.deleteStash(y.id) } }), { yarn = null })
+        YarnSheet(y, isNew, { scope.launch { app.repo.saveYarn(it) } }, if (isNew) null else ({ scope.launch { app.repo.deleteYarn(y) } }), { yarn = null }, allowPhoto = true)
     }
     needle?.let { n ->
         val isNew = needles.none { it.id == n.id }

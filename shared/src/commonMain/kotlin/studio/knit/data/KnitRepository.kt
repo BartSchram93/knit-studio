@@ -137,6 +137,17 @@ class KnitRepository(
     suspend fun image(id: String): ByteArray? = withContext(io) { q.selectImage(id).executeAsOneOrNull() }
     suspend fun deleteImage(id: String) = withContext(io) { q.deleteImage(id) }
 
+    /** Stores a photo for a stash item and returns its id. */
+    suspend fun addStashPhoto(bytes: ByteArray): String = addImage(STASH_IMAGES, bytes)
+
+    /** Removes a yarn from the stash together with its photo. */
+    suspend fun deleteYarn(y: Yarn) = withContext(io) {
+        db.transaction {
+            y.photoId?.let { q.deleteImage(it) }
+            q.deleteStash(y.id)
+        }
+    }
+
     // --- Stitch library ----------------------------------------------------------------------
 
     private fun customStitchesNow(): List<StitchDef> =
@@ -291,6 +302,10 @@ class KnitRepository(
                         q.upsertPattern(p.id, p.name, p.updatedAt, json.encodeToString(Pattern.serializer(), p))
                         for (imageId in p.imageIds) r.images[imageId]?.let { q.upsertImage(imageId, p.id, it) }
                     }
+                    // Photos of stash yarn.
+                    for (y in b.yarnStash) {
+                        y.photoId?.let { id -> r.images[id]?.let { q.upsertImage(id, STASH_IMAGES, it) } }
+                    }
                     for (s in b.customStitches) q.upsertStitch(s.id, json.encodeToString(StitchDef.serializer(), s.copy(builtIn = false)))
                     for (c in b.collections) q.upsertCollection(c.id, c.name, c.sortIndex.toLong())
                     for (y in b.yarnStash) q.upsertStash(y.id, KIND_YARN, json.encodeToString(Yarn.serializer(), y))
@@ -356,6 +371,8 @@ class KnitRepository(
     private companion object {
         const val KIND_YARN = "yarn"
         const val KIND_NEEDLE = "needle"
+        /** Owner id under which stash photos are stored in the image table. */
+        const val STASH_IMAGES = "stash"
         const val KIND_CABLE = "cable"
     }
 }

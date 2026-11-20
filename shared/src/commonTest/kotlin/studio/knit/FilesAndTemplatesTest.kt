@@ -203,4 +203,30 @@ class FilesAndTemplatesTest {
         assertTrue(!e.hasErrors, e.issues.toString())
         assertEquals("Unknown stitch “zzz”", library.require("zzz").name)
     }
+
+    // --- What people pick by mistake ---------------------------------------------------------
+
+    @Test fun commonWrongFilesAreNamed() {
+        fun bytes(vararg b: Int) = ByteArray(b.size) { b[it].toByte() } + ByteArray(20)
+        assertTrue(KnitFiles.identifyOtherFile("%PDF-1.4 rest".encodeToByteArray())!!.contains("PDF"))
+        assertTrue(KnitFiles.identifyOtherFile(bytes(0x50, 0x4B, 0x03, 0x04))!!.contains("zip"))
+        assertTrue(KnitFiles.identifyOtherFile(bytes(0xFF, 0xD8, 0xFF, 0xE0))!!.contains("photo"))
+        assertTrue(KnitFiles.identifyOtherFile(ByteArray(0))!!.contains("empty"))
+        assertEquals(null, KnitFiles.identifyOtherFile(KnitFiles.encodePattern(richPattern()).encodeToByteArray()))
+    }
+
+    @Test fun unreadableTextExplainsWhatItIs() {
+        fun reason(text: String) = assertIs<ImportResult.Failure>(KnitFiles.decodePattern(text)).reason
+        val good = KnitFiles.encodePattern(richPattern())
+        assertTrue(reason(good.take(good.length / 2)).contains("incomplete or damaged"))
+        assertTrue(reason("{\\rtf1\\ansi {\\fonttbl}").contains("RTF"))
+        assertTrue(reason("Hello knitting").contains("starts with “Hello knitting”"))
+        assertTrue(reason("").contains("empty"))
+    }
+
+    @Test fun byteOrderMarkAndTrailingNulsAreTolerated() {
+        val original = richPattern()
+        val text = "\uFEFF\n" + KnitFiles.encodePattern(original) + "\u0000\u0000"
+        assertEquals(original, assertIs<ImportResult.Success<Pattern>>(KnitFiles.decodePattern(text)).value)
+    }
 }

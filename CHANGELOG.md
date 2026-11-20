@@ -9,6 +9,11 @@
   a by-size view, quick brand choice and "Add <brand> needle" that picks the next free size.
   Brands typed into the notes earlier can be moved to the new field in one step (only after
   confirming; nothing changes on its own).
+- **Photo of the yarn** in the stash, shown instead of the colour dot in the list. Photos are
+  included in backups and removed together with the yarn.
+- Clear import messages: picking a PDF, zip, photo or a damaged file now says what the file is,
+  with its name. The import button is labelled "Import a Knit Studio file". Files with a
+  byte-order mark or trailing NUL bytes are accepted.
 - **Cables for interchangeable needles**: cables are stash items of their own (length, connector,
   material, number), shown inside the brand folder next to the tips, with "Add <brand> cable".
   For interchangeable needles the length field is now labelled **Tip length**. Cables are

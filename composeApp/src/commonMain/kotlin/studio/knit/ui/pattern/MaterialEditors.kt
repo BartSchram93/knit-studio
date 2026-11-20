@@ -1,5 +1,15 @@
 package studio.knit.ui.pattern
 
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.width
+import kotlinx.coroutines.launch
+import studio.knit.ui.components.Icons
+import studio.knit.ui.components.SoftButton
+import studio.knit.ui.components.TextBtn
+import studio.knit.ui.platform.decodeImage
+import studio.knit.ui.platform.rememberPlatformActions
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -79,11 +89,54 @@ fun ColorGrid(selected: Long?, onSelect: (Long) -> Unit, modifier: Modifier = Mo
 
 /** Edits one yarn. Used for pattern materials and for the stash. */
 @Composable
-fun YarnSheet(initial: Yarn, isNew: Boolean, onSave: (Yarn) -> Unit, onDelete: (() -> Unit)?, onDismiss: () -> Unit) {
+fun YarnSheet(
+    initial: Yarn, isNew: Boolean, onSave: (Yarn) -> Unit, onDelete: (() -> Unit)?, onDismiss: () -> Unit,
+    /** Offer a photo of the yarn (used in the stash). */
+    allowPhoto: Boolean = false,
+) {
     val settings by LocalApp.current.settings.collectAsState()
     val units = unitFormat()
     var y by remember { mutableStateOf(initial) }
-    Sheet(if (isNew) "New yarn" else "Yarn", onDismiss, doneLabel = "Save", onDone = { onSave(y); onDismiss() }) {
+    val app = LocalApp.current
+    val scope = rememberCoroutineScope()
+    val platform = rememberPlatformActions()
+    // A photo taken in this sheet is stored at once; it is removed again if the sheet is cancelled.
+    var saved by remember { mutableStateOf(false) }
+    val close: () -> Unit = {
+        if (!saved && y.photoId != null && y.photoId != initial.photoId) { val id = y.photoId!!; scope.launch { app.repo.deleteImage(id) } }
+        onDismiss()
+    }
+    Sheet(if (isNew) "New yarn" else "Yarn", close, doneLabel = "Save", onDone = {
+        saved = true
+        initial.photoId?.takeIf { it != y.photoId }?.let { old -> scope.launch { app.repo.deleteImage(old) } }
+        onSave(y)
+        onDismiss()
+    }) {
+        if (allowPhoto) {
+            Row(Modifier.padding(horizontal = PagePadding).padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                YarnPhoto(y.photoId, y.colorArgb, 96.dp)
+                Spacer(Modifier.width(16.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SoftButton(if (y.photoId == null) "Add photo" else "Replace photo", {
+                        platform.pickImage { bytes ->
+                            if (bytes == null) return@pickImage
+                            scope.launch {
+                                val previous = y.photoId
+                                val id = app.repo.addStashPhoto(bytes)
+                                y = y.copy(photoId = id)
+                                // Replaced again before saving: drop the intermediate photo.
+                                if (previous != null && previous != initial.photoId) app.repo.deleteImage(previous)
+                            }
+                        }
+                    }, icon = Icons.Photo, compact = true)
+                    if (y.photoId != null) TextBtn("Remove photo", {
+                        val current = y.photoId
+                        y = y.copy(photoId = null)
+                        if (current != null && current != initial.photoId) scope.launch { app.repo.deleteImage(current) }
+                    }, color = Knit.colors.error)
+                }
+            }
+        }
         Column(Modifier.padding(horizontal = PagePadding).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 BoundField(y.brand, { y = y.copy(brand = it) }, Modifier.weight(1f), "Brand", "e.g. Holst", capitalization = KeyboardCapitalization.Words)
@@ -226,5 +279,24 @@ fun CableSheet(initial: Cable, isNew: Boolean, onSave: (Cable) -> Unit, onDelete
             Spacer(Modifier.height(22.dp))
             PrimaryButton("Remove cable", { onDelete(); onDismiss() }, Modifier.padding(horizontal = PagePadding).fillMaxWidth(), destructive = true)
         }
+    }
+}
+
+/** The yarn's photo when it has one, otherwise its colour. */
+@Composable
+fun YarnPhoto(photoId: String?, colorArgb: Long?, size: Dp = 26.dp) {
+    val app = LocalApp.current
+    val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, photoId) {
+        value = photoId?.let { id -> app.repo.image(id)?.let { decodeImage(it) } }
+    }
+    val image = bitmap
+    if (image != null) {
+        androidx.compose.foundation.Image(
+            image, "Photo of the yarn",
+            Modifier.size(size).clip(androidx.compose.foundation.shape.RoundedCornerShape(size * 0.22f)),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        )
+    } else {
+        ColorDot(colorArgb, size)
     }
 }

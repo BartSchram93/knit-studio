@@ -72,4 +72,28 @@ class NeedleStashTest {
         assertShown("Tip length")
         shot("36-needle-tip-length")
     }
+
+    @Test fun yarnInTheStashCanHaveAPhoto() = knitUiTest { env ->
+        // A tiny real JPEG would be decoded; any bytes are stored, and the list falls back to the colour dot.
+        studio.knit.ui.platform.DesktopPlatform.nextImage = javaClass.getResourceAsStream("/yarn.jpg")?.readBytes() ?: byteArrayOf(1, 2, 3)
+        tap("Tools"); tap("Yarn & needle stash")
+        tap("Add yarn")
+        tap("Add photo")
+        waitForIdle()
+        assertShown("Replace photo")
+        shot("37-yarn-photo")
+        tap("Save")
+        waitForIdle()
+        val y = runBlocking { env.repo.yarnStash.first() }.single()
+        val id = kotlin.test.assertNotNull(y.photoId)
+        kotlin.test.assertNotNull(runBlocking { env.repo.image(id) })
+    }
+
+    @Test fun pickingAPdfToImportSaysWhatItIs() = knitUiTest { _ ->
+        studio.knit.ui.platform.DesktopPlatform.nextFile = studio.knit.ui.platform.PickedFile("Sokken patroon.pdf", "%PDF-1.7\n...".encodeToByteArray())
+        tap("New pattern"); tap("Import a Knit Studio file")
+        waitForIdle()
+        assertShown("“Sokken patroon.pdf”: This is a PDF document")
+        shot("38-import-pdf-message")
+    }
 }

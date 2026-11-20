@@ -276,7 +276,7 @@ private fun YarnList(p: Pattern, editor: PatternEditor) {
                 if (stash.isEmpty()) { isNew = true; editing = Yarn(id = newId(), label = if (p.yarns.isEmpty()) "MC" else "") } else menu = true
             }
             Menu(menu, { menu = false }, listOf(MenuItem("New yarn", Icons.Plus) { isNew = true; editing = Yarn(id = newId(), label = if (p.yarns.isEmpty()) "MC" else "") }) +
-                stash.map { s -> MenuItem("From stash: ${s.displayName}") { editor.update { it.copy(yarns = it.yarns + s.copy(id = newId())) } } })
+                stash.map { s -> MenuItem("From stash: ${s.displayName}") { editor.update { it.copy(yarns = it.yarns + s.copy(id = newId(), photoId = null)) } } })
         }
     }
     editing?.let { y ->

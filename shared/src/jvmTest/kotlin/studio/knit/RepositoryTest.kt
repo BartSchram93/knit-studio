@@ -255,4 +255,21 @@ class RepositoryTest {
         assertEquals(listOf("ChiaoGoo"), r.needleStash.first().map { it.notes })
         assertTrue(r.cableStash.first().isEmpty())
     }
+
+    @Test fun stashYarnPhotosSurviveBackupAndAreRemovedWithTheYarn() = runTest {
+        val a = repo()
+        val photo = a.addStashPhoto(byteArrayOf(7, 7, 7))
+        a.saveYarn(Yarn(id = "y", brand = "Drops", name = "Alpaca", photoId = photo))
+        val backup = a.exportBackup()
+
+        val b = repo()
+        b.restoreBackup(backup, replace = true).getOrThrow()
+        val restored = b.yarnStash.first().single()
+        assertEquals(photo, restored.photoId)
+        assertContentEquals(byteArrayOf(7, 7, 7), b.image(photo))
+
+        b.deleteYarn(restored)
+        assertTrue(b.yarnStash.first().isEmpty())
+        assertNull(b.image(photo))
+    }
 }
