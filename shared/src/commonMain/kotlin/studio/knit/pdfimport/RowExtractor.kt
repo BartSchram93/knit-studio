@@ -424,7 +424,7 @@ object RowExtractor {
 
         private fun add(row: ImportItem.Instruction) {
             items += row
-            row.number?.let { numberToPosition.putIfAbsent(it, instructionCount()); lastNumber = it }
+            row.number?.let { numberToPosition.getOrPut(it) { instructionCount() }; lastNumber = it }
         }
 
         fun fillAlternate(number: Int, side: Side?, text: String, note: String, label: String) {
