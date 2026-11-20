@@ -197,7 +197,7 @@ the same app because the bundle identifier (`studio.knit.app`) matches. If it of
 *install* rather than *update* Knit Studio, make a backup first; the install then replaces the
 existing app in the same way as a manual update.
 
-**First update with the lock-screen row (from version 1.0 builds after November 2026):** this
+**The first update that includes the lock-screen row:** this
 version adds a small extension, so AltStore registers one extra App ID for it during the update.
 If AltStore reports the App ID limit (error 1009/3013), wait until an older App ID expires
 (*My Apps › View App IDs*) and update then. Your data is unaffected either way.
