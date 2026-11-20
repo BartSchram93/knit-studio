@@ -129,7 +129,7 @@ class WorkflowTest {
         assertTrue(pdf.decodeToString(0, 8).startsWith("%PDF-1.4"))
         assertTrue(pdf.size > 3_000)
 
-        tap("Pattern file"); tap("Share file")
+        tap("Knit Studio file"); tap("Share file")
         waitUntil(timeoutMillis = 5_000) { DesktopPlatform.written.size == 2 }
         val file = DesktopPlatform.written[1]
         assertTrue(file.first.endsWith(".knit"))

@@ -99,7 +99,7 @@ fun ExportSheet(pattern: Pattern, editor: PatternEditor, onDismiss: () -> Unit) 
     }
 
     Sheet("Export", onDismiss) {
-        Segmented(listOf("PDF document", "Pattern file"), mode, { mode = it }, Modifier.padding(horizontal = PagePadding).padding(top = 8.dp).fillMaxWidth())
+        Segmented(listOf("PDF to print", "Knit Studio file"), mode, { mode = it }, Modifier.padding(horizontal = PagePadding).padding(top = 8.dp).fillMaxWidth())
         if (mode == 0) {
             SectionHeader("Include")
             Group {
@@ -125,18 +125,18 @@ fun ExportSheet(pattern: Pattern, editor: PatternEditor, onDismiss: () -> Unit) 
             Segmented(PaperSize.entries.map { it.label }, options.paper.ordinal, { options = options.copy(paper = PaperSize.entries[it]) }, Modifier.padding(horizontal = PagePadding).fillMaxWidth())
             Spacer(Modifier.height(10.dp))
             Segmented(listOf("Portrait", "Landscape"), if (options.landscape) 1 else 0, { options = options.copy(landscape = it == 1) }, Modifier.padding(horizontal = PagePadding).fillMaxWidth())
-            SectionFooter("Charts are drawn as vector graphics, so they stay sharp at any print size. Units and terminology follow your settings.")
+            SectionFooter("For printing and reading. Charts are vector graphics, so they stay sharp at any size. A PDF cannot be imported back into Knit Studio — for that, use “Knit Studio file”.")
             Spacer(Modifier.height(18.dp))
             Row(Modifier.padding(horizontal = PagePadding), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PrimaryButton("Share PDF", { pdf(true) }, Modifier.weight(1f), icon = Icons.Share, enabled = !busy)
                 SoftButton("Save to Files", { pdf(false) }, Modifier.weight(1f), icon = Icons.Import, enabled = !busy)
             }
         } else {
-            SectionHeader("Knit Studio pattern (.knit)")
+            SectionHeader("Knit Studio file (.knit)")
             Group {
                 SwitchRow("Include knitting progress", includeProgress, { includeProgress = it }, "Row position, counters and notes")
             }
-            SectionFooter("The file holds everything about this pattern — charts, rows, sizes, materials, photos and your own stitches — and opens in Knit Studio on Android and iPhone alike.")
+            SectionFooter("To keep a copy you can import again, or to move the pattern to another phone. It holds everything — charts, rows, sizes, materials, photos and your own stitches. Open it with New › Import a Knit Studio file.")
             Spacer(Modifier.height(18.dp))
             Row(Modifier.padding(horizontal = PagePadding), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PrimaryButton("Share file", { file(true) }, Modifier.weight(1f), icon = Icons.Share, enabled = !busy)
