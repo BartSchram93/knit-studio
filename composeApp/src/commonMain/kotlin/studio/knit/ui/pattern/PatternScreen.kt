@@ -195,6 +195,16 @@ private fun LazyListScope.overviewTab(
         }
     }
 
+    // Knitting statistics
+    item {
+        val today = remember { studio.knit.stats.dayKey(nowMillis()) }
+        val stats = remember(p.progress?.days, today) { studio.knit.stats.statsOf(listOfNotNull(p.progress?.days), today) }
+        if (!stats.isEmpty) {
+            SectionHeader("This project")
+            studio.knit.ui.tools.StatsBlock(stats)
+        }
+    }
+
     item { SectionHeader("Details") }
     item {
         Column(Modifier.padding(horizontal = PagePadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -269,16 +279,6 @@ private fun LazyListScope.overviewTab(
     item {
         BoundField(p.notes, { v -> editor.update { it.copy(notes = v) } }, Modifier.padding(horizontal = PagePadding).fillMaxWidth(),
             placeholder = "Blocking, finishing, modifications…", singleLine = false, minLines = 3)
-    }
-
-    // Knitting statistics
-    item {
-        val today = remember { studio.knit.stats.dayKey(nowMillis()) }
-        val stats = remember(p.progress?.days, today) { studio.knit.stats.statsOf(listOfNotNull(p.progress?.days), today) }
-        if (!stats.isEmpty) {
-            SectionHeader("Knitting stats")
-            studio.knit.ui.tools.StatsBlock(stats)
-        }
     }
 
     // PDF patterns

@@ -41,5 +41,9 @@ class StatsUiTest {
         assertShown("knitted in total")
         assertShown("days in a row")
         shot("43-stats-overview")
+        // Per project: the pattern's own page shows its stats at the top.
+        tap("Feather & fan lace")
+        assertShown("THIS PROJECT")
+        shot("44-stats-per-project")
     }
 }
