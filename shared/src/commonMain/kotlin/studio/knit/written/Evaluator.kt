@@ -35,6 +35,8 @@ data class RowEval(
      */
     val multiple: Int? = null,
     val extra: Int? = null,
+    /** Markers on the right needle after the row (stitches before each), or null when unknown. */
+    val markersOut: List<Int>? = null,
 ) {
     val hasErrors: Boolean get() = issues.any { it.severity == Severity.ERROR }
     val delta: Int? get() = if (consumed != null && produced != null) produced - consumed else null
@@ -46,7 +48,12 @@ data class RowEval(
  */
 class RowEvaluator(private val sizeIndex: Int = 0) {
 
-    private class State(var remaining: Int?) {
+    private class State(var remaining: Int?, markersIn: List<Int>?) {
+        /** Markers still ahead on the left needle, as the number of row stitches before each. */
+        var ahead: ArrayList<Int>? = markersIn?.sorted()?.let { ArrayList(it) }
+        /** Markers on the right needle, as the number of new stitches before each. */
+        val placed = ArrayList<Int>()
+        var markersUnknown = false
         var consumed = 0
         var produced = 0
         val list = ArrayList<Worked>()
@@ -62,11 +69,15 @@ class RowEvaluator(private val sizeIndex: Int = 0) {
      * @param compact work every "to end" repeat exactly once and flag its stitches
      *   ([Worked.inRepeat]); used to draw a chart of one repeat.
      */
-    fun evaluate(parsed: ParsedRow, stitchesIn: Int?, compact: Boolean = false): RowEval {
-        val st = State(stitchesIn)
+    fun evaluate(parsed: ParsedRow, stitchesIn: Int?, compact: Boolean = false, markersIn: List<Int>? = null): RowEval {
+        val st = State(stitchesIn, markersIn)
         for (e in parsed.errors) st.error(e.message)
         run(parsed.nodes, st, compact, inRepeat = false)
 
+        if (st.markersUnknown && !compact) {
+            st.issues += EvalIssue(Severity.INFO, "Marker positions are not known here — set the markers after the cast-on in the section settings to have this row checked")
+            return RowEval(null, null, null, st.issues)
+        }
         if (st.unresolved) {
             if (compact) {
                 st.issues += EvalIssue(Severity.WARNING, "“To end” instructions outside a repeat need a known stitch count")
@@ -74,7 +85,7 @@ class RowEvaluator(private val sizeIndex: Int = 0) {
             }
             // Without a starting count the row cannot be checked, but a repeat still tells us
             // which stitch counts it works over.
-            val once = State(null)
+            val once = State(null, null)
             run(parsed.nodes, once, compact = true, inRepeat = false)
             val per = once.list.filter { it.inRepeat }.sumOf { it.def.consumes }
             return if (!once.unresolved && per > 0) {
@@ -87,6 +98,9 @@ class RowEvaluator(private val sizeIndex: Int = 0) {
             }
         }
         if (compact) return RowEval(st.consumed, st.produced, st.list, st.issues, st.repeats)
+        // Markers right at the end of the row move across with the last stitch.
+        st.ahead?.let { ahead -> ahead.filter { it <= st.consumed }.forEach { st.placed += st.produced }; ahead.clear() }
+        val markersOut = if (st.ahead != null) st.placed.sorted() else null
 
         if (stitchesIn != null && parsed.nodes.isNotEmpty() && st.consumed != stitchesIn && st.issues.none { it.severity == Severity.ERROR }) {
             if (st.consumed < stitchesIn) {
@@ -101,7 +115,7 @@ class RowEvaluator(private val sizeIndex: Int = 0) {
             val expected = stated.forSize(sizeIndex)
             if (expected != st.produced) st.error("Row says $expected sts but works out to ${st.produced}")
         }
-        return RowEval(st.consumed, st.produced, st.list, st.issues, st.repeats)
+        return RowEval(st.consumed, st.produced, st.list, st.issues, st.repeats, markersOut = markersOut)
     }
 
     private fun run(nodes: List<Node>, st: State, compact: Boolean, inRepeat: Boolean) {
@@ -117,8 +131,39 @@ class RowEvaluator(private val sizeIndex: Int = 0) {
 
     private fun stitch(node: Node.Stitch, st: State, compact: Boolean, inRepeat: Boolean) {
         val def = node.def
+        when (def.id) {
+            "pm" -> { repeat((node.count as? Count.Fixed)?.n?.forSize(sizeIndex) ?: 1) { st.placed += st.produced }; return }
+            "sm", "rm" -> {
+                val ahead = st.ahead ?: return
+                val here = ahead.indexOfFirst { it == st.consumed }
+                if (here < 0) {
+                    st.issues += EvalIssue(Severity.WARNING, "There is no marker here to ${if (def.id == "sm") "slip" else "remove"} (after ${st.consumed} sts)")
+                    return
+                }
+                ahead.removeAt(here)
+                if (def.id == "sm") st.placed += st.produced
+                return
+            }
+        }
         val n = when (val c = node.count) {
             is Count.Fixed -> c.n.forSize(sizeIndex)
+            is Count.ToMarker -> {
+                if (compact) { st.unresolved = true; return }
+                val ahead = st.ahead
+                if (ahead == null) { st.markersUnknown = true; st.unresolved = true; return }
+                val next = ahead.firstOrNull { it > st.consumed } ?: ahead.firstOrNull { it == st.consumed }
+                if (next == null) { st.error("“${def.abbr} to marker”: there is no marker ahead (after ${st.consumed} sts)"); return }
+                val avail = next - c.before.forSize(sizeIndex) - st.consumed
+                when {
+                    def.consumes == 0 -> { st.error("“${def.abbr}” uses no stitches, so it cannot be worked to a marker"); return }
+                    avail < 0 -> { st.error("“${def.abbr}” to ${c.before} sts before the marker: only ${next - st.consumed} sts are left before it"); return }
+                    avail % def.consumes != 0 -> {
+                        st.error("“${def.abbr}” to marker: $avail sts, which is not a multiple of ${def.consumes}")
+                        avail / def.consumes
+                    }
+                    else -> avail / def.consumes
+                }
+            }
             is Count.ToEnd -> {
                 val rem = st.remaining
                 if (rem == null || compact) { st.unresolved = true; return }
@@ -140,6 +185,18 @@ class RowEvaluator(private val sizeIndex: Int = 0) {
 
     private fun apply(def: StitchDef, n: Int, st: State, inRepeat: Boolean) {
         if (n <= 0) return
+        // Markers passed on the way move to the right needle, between the same stitches.
+        val ahead = st.ahead
+        if (ahead != null && def.consumes > 0) {
+            val end = st.consumed + n * def.consumes
+            val passed = ahead.filter { it >= st.consumed && it < end }
+            for (m in passed) {
+                val offset = m - st.consumed
+                if (offset % def.consumes != 0) st.issues += EvalIssue(Severity.WARNING, "“${def.abbr}” works across a marker (after $m sts)")
+                st.placed += st.produced + (offset / def.consumes) * def.produces
+            }
+            ahead.removeAll(passed)
+        }
         st.consumed += n * def.consumes
         st.produced += n * def.produces
         st.remaining = st.remaining?.minus(n * def.consumes)
@@ -149,6 +206,22 @@ class RowEvaluator(private val sizeIndex: Int = 0) {
     private fun group(node: Node.Group, st: State, compact: Boolean, inRepeat: Boolean) {
         when (val t = node.times) {
             is Count.Fixed -> repeat(t.n.forSize(sizeIndex).coerceIn(0, MAX_REPEATS)) { run(node.body, st, compact, inRepeat) }
+            is Count.ToMarker -> {
+                // "(k2, p2) to marker": repeat until the next marker is reached.
+                val ahead = st.ahead
+                if (compact) { st.unresolved = true; return }
+                if (ahead == null) { st.markersUnknown = true; st.unresolved = true; return }
+                val next = ahead.firstOrNull { it > st.consumed } ?: run { st.error("Repeat to marker: there is no marker ahead"); return }
+                val target = next - t.before.forSize(sizeIndex)
+                var reps = 0
+                while (reps < MAX_REPEATS && st.consumed < target) {
+                    val c0 = st.consumed
+                    run(node.body, st, compact = false, inRepeat = inRepeat)
+                    if (st.consumed <= c0) { st.error("The repeat uses no stitches, so it can never reach the marker"); break }
+                    reps++
+                }
+                if (st.consumed > target) st.error("Repeat does not fit before the marker: it ends ${st.consumed - target} sts past it")
+            }
             is Count.ToEnd -> {
                 if (compact) {
                     run(node.body, st, compact, inRepeat = true)
@@ -168,6 +241,7 @@ class RowEvaluator(private val sizeIndex: Int = 0) {
                     if (rem - leave <= 0) break
                     // Snapshot so an overshooting pass can be undone.
                     val c0 = st.consumed; val p0 = st.produced; val l0 = st.list.size; val col0 = st.color
+                    val ahead0 = st.ahead?.toList(); val placed0 = st.placed.toList()
                     run(node.body, st, compact = false, inRepeat = inRepeat)
                     val used = st.consumed - c0
                     if (st.unresolved) return
@@ -179,6 +253,7 @@ class RowEvaluator(private val sizeIndex: Int = 0) {
                     if (after < leave) {
                         // Undo the partial pass and report.
                         st.consumed = c0; st.produced = p0; st.remaining = rem; st.color = col0
+                        ahead0?.let { st.ahead = ArrayList(it) }; st.placed.clear(); st.placed.addAll(placed0)
                         while (st.list.size > l0) st.list.removeAt(st.list.size - 1)
                         val space = rem - leave
                         st.error("Repeat of $used sts does not fit: $space ${plural(space)} left before the ${if (leave == 0) "end" else "last $leave"}")
@@ -274,11 +349,13 @@ fun evaluateSection(section: Section, sizeIndex: Int, library: StitchLibrary): S
 
     val start = section.castOn?.forSize(sizeIndex)
     var current = start
+    // Markers are only known while the stitch count is known (flat rows turn the work around).
+    var markers: List<Int>? = if (start != null) section.markers.filter { it in 0..start } else null
     val out = ArrayList<ExpandedRow>(seq.size)
     var side = section.firstRowSide
     seq.forEachIndexed { index, p ->
         val rowSide = if (section.construction == Construction.ROUND) Side.RS else side
-        val raw = if (p.parsed.isEmpty) null else evaluator.evaluate(p.parsed, current)
+        val raw = if (p.parsed.isEmpty) null else evaluator.evaluate(p.parsed, current, markersIn = markers)
         val eval = if (raw != null && section.importedFrom != null && p.parsed.errors.isNotEmpty()) {
             // Imported rows in the designer's own words: follow them, but do not flag them as wrong.
             raw.copy(issues = listOf(EvalIssue(Severity.INFO, "Not checked — the app does not understand: " + p.parsed.errors.joinToString("; ") { it.fragment })))
@@ -301,7 +378,13 @@ fun evaluateSection(section: Section, sizeIndex: Int, library: StitchLibrary): S
             for (i in eval.issues) issues += SectionIssue(p.via.id, i.severity, "Repeat ${p.iteration} of ${p.total}, row ${index + 1}: ${i.message}")
         }
         // A row the app could not fully read gives no reliable count for the rows after it.
-        if (!p.parsed.isEmpty) current = if (p.parsed.errors.isEmpty()) eval.produced else null
+        if (!p.parsed.isEmpty) {
+            current = if (p.parsed.errors.isEmpty()) eval.produced else null
+            val total = current
+            markers = if (total == null) null else eval.markersOut?.let { out ->
+                if (section.construction == Construction.ROUND) out else out.map { total - it }.sorted()
+            }
+        }
         side = side.flipped()
     }
     return SectionEval(out, issues, start ?: out.firstOrNull()?.eval?.consumed, current)

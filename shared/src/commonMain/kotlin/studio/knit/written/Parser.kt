@@ -23,6 +23,9 @@ sealed interface Count {
 
     /** As many as fit until [leaving] stitches remain on the left needle ("to last 2 sts"). */
     data class ToEnd(val leaving: SizedInt = SizedInt(0)) : Count
+
+    /** Up to the next marker, or [before] stitches before it ("k to 2 sts before marker"). */
+    data class ToMarker(val before: SizedInt = SizedInt(0)) : Count
 }
 
 sealed interface Node {
@@ -54,8 +57,8 @@ data class ParsedRow(
 }
 
 fun Node.isOpenEnded(): Boolean = when (this) {
-    is Node.Stitch -> count is Count.ToEnd
-    is Node.Group -> times is Count.ToEnd || body.any { it.isOpenEnded() }
+    is Node.Stitch -> count is Count.ToEnd || count is Count.ToMarker
+    is Node.Group -> times is Count.ToEnd || times is Count.ToMarker || body.any { it.isOpenEnded() }
     else -> false
 }
 
@@ -260,6 +263,14 @@ class RowParser(private val library: StitchLibrary) {
 
     private fun parseStitch(chunkIn: String): Node? {
         var chunk = chunkIn
+        // Named markers ("slip M2", "place marker M1") and "m1r before the marker".
+        NAMED_MARKER.matchEntire(chunk)?.let { m ->
+            val id = when (m.groupValues[1]) { "slip", "sl", "sm" -> "sm"; "remove", "rm" -> "rm"; else -> "pm" }
+            return library[id]?.let { Node.Stitch(it) }
+        }
+        if (!Regex("""\b(?:to|until)\b""").containsMatchIn(chunk)) chunk = chunk.replace(AROUND_MARKER, "")
+        // "Bind off all sts knitwise, loosely" → bind off to end.
+        BIND_OFF_ALL.matchEntire(chunk)?.let { return library["bo"]?.let { Node.Stitch(it, Count.ToEnd()) } }
         // "work the stitches as they appear", "knit the knits and purl the purls" → work as set.
         AS_THEY_APPEAR.matchEntire(chunk)?.let { m -> chunk = "work " + m.groupValues[1].trim().ifEmpty { "to end" } }
         // k2tbl / p3tbl → ktbl ×2
@@ -303,6 +314,7 @@ class RowParser(private val library: StitchLibrary) {
         if (rest.isEmpty()) return Count.Fixed(1)
         parseSized(rest)?.let { return Count.Fixed(it) }
         TO_END.matchEntire(rest)?.let { return Count.ToEnd() }
+        TO_MARKER.matchEntire(rest)?.let { m -> return if (m.groupValues[1].isEmpty()) Count.ToMarker() else parseSized(m.groupValues[1])?.let { Count.ToMarker(it) } }
         TO_LAST_ONE.matchEntire(rest)?.let { return Count.ToEnd(SizedInt(1)) }
         UNTIL_REMAIN.matchEntire(rest)?.let { m -> return parseSized(m.groupValues[1])?.let { Count.ToEnd(it) } }
         TO_LAST.matchEntire(rest)?.let { m -> return parseSized(m.groupValues[1])?.let { Count.ToEnd(it) } }
@@ -331,6 +343,12 @@ class RowParser(private val library: StitchLibrary) {
         /** "to the last stitch (on the needle)": one stitch left. */
         private val TO_LAST_ONE = Regex("(?:to|until)\\s+(?:the\\s+)?last\\s+(?:st|stitch)(?:\\s+on\\s+the\\s+(?:left[- ]hand\\s+)?needle)?")
         private val TO_LAST = Regex("(?:to|until)\\s+(?:the\\s+)?last\\s+($SIZED)\\s*(?:sts?|stitches)?")
+        private val BIND_OFF_ALL = Regex("^(?:bind|cast)\\s+off(?:\\s+all(?:\\s+(?:rem(?:aining)?\\s+)?(?:sts|stitches))?)?(?:,?\\s+(?:knitwise|purlwise|loosely|in\\s+patt(?:ern)?|in\\s+rib|as\\s+set))*$")
+        /** "to marker", "to next m", "to M2", "to 2 sts before marker". */
+        private val TO_MARKER = Regex("(?:to|until)\\s+(?:($SIZED)\\s*(?:sts?|stitch(?:es)?)\\s+before\\s+)?(?:the\\s+)?(?:next\\s+)?(?:marker|mk|mrk|m(?:\\d+)?|pm)")
+        /** Markers with a name: "slip M2", "place marker M1", "pm M3" (plain "slip marker" is an alias). */
+        private val NAMED_MARKER = Regex("^(slip|sl|sm|remove|rm|place|pm)\\s+(?:a\\s+)?(?:(?:stitch\\s+)?marker\\s+)?m\\d+$")
+        private val AROUND_MARKER = Regex("\\s+(?:before|after)\\s+(?:the\\s+)?(?:next\\s+)?(?:marker|m\\d*)$")
         /** "until 3 sts remain (on the left needle)": that many stitches left. */
         private val UNTIL_REMAIN = Regex("(?:until|till)\\s+($SIZED)\\s*(?:sts?|stitch(?:es)?)\\s+remains?(?:\\s+(?:unworked|on\\s+(?:the\\s+)?(?:left[- ]hand\\s+|lh\\s+)?needle))?")
         private val AS_THEY_APPEAR = Regex("^(?:(?:work|knit\\s+and\\s+purl)\\s+(?:all\\s+)?(?:the\\s+)?(?:sts?|stitches)\\s+as\\s+they\\s+(?:appear|present(?:\\s+themselves)?)|knit\\s+the\\s+knits\\s+and\\s+purl\\s+the\\s+purls)(.*)$")

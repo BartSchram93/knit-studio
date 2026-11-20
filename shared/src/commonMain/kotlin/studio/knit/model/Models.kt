@@ -278,6 +278,11 @@ data class Section(
      * understand are tracked but marked "not checked" instead of reported as errors.
      */
     val importedFrom: String? = null,
+    /**
+     * Markers on the needle after the cast-on, as the number of stitches before each marker
+     * (counted from the start of row 1). "k to marker" and "sm" are checked against them.
+     */
+    val markers: List<Int> = emptyList(),
 )
 
 // ---------------------------------------------------------------------------------------------

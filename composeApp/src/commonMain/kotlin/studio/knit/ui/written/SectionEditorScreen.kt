@@ -187,7 +187,7 @@ fun SectionEditorScreen(patternId: String, sectionId: String, focusRowId: String
         Column(Modifier.weight(1f).imePadding()) {
             LazyColumn(Modifier.weight(1f), state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
                 item(key = "__header") {
-                    SectionSummary(p, section, eval, sizeIndex, onSize = { sizeIndex = it }, onCastOn = { v -> updateSection { it.copy(castOn = v) } })
+                    SectionSummary(p, section, eval, sizeIndex, onSize = { sizeIndex = it }, onCastOn = { v -> updateSection { it.copy(castOn = v) } }, onMarkers = { m -> updateSection { it.copy(markers = m) } })
                 }
                 itemsIndexed(section.rows, key = { _, r -> r.id }) { index, row ->
                     RowCard(
@@ -329,6 +329,7 @@ private fun sectionMenu(
 @Composable
 private fun SectionSummary(
     p: Pattern, section: Section, eval: SectionEval, sizeIndex: Int, onSize: (Int) -> Unit, onCastOn: (SizedInt?) -> Unit,
+    onMarkers: (List<Int>) -> Unit,
 ) {
     val chart = p.charts.firstOrNull { it.id == section.chartId }
     Column(Modifier.padding(horizontal = PagePadding).padding(top = 12.dp)) {
@@ -353,6 +354,20 @@ private fun SectionSummary(
                 }
                 Text(line, style = Knit.type.subhead, color = Knit.colors.secondaryLabel)
             }
+        }
+        val usesMarkers = section.markers.isNotEmpty() || section.rows.any { Regex("""\b(marker|sm|pm|m\d)\b""", RegexOption.IGNORE_CASE).containsMatchIn(it.text) }
+        if (usesMarkers) {
+            val total = section.castOn?.forSize(sizeIndex)
+            BoundField(
+                markersToGroups(section.markers, total),
+                { text -> onMarkers(groupsToMarkers(text, total)) },
+                Modifier.fillMaxWidth(), "Markers after cast-on: stitches between them", "e.g. 2, 2, 2",
+                keyboard = KeyboardType.Text, capitalization = KeyboardCapitalization.None,
+            )
+            Text(
+                "“2, 2, 2” means 2 sts, marker, 2 sts, marker, 2 sts. “Knit to marker” and “slip marker” are then checked.",
+                style = Knit.type.footnote, color = Knit.colors.secondaryLabel, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
+            )
         }
         if (chart != null) {
             Spacer(Modifier.height(8.dp))
@@ -496,4 +511,21 @@ private fun SectionSettingsSheet(p: Pattern, section: Section, update: ((Section
         }
         SectionFooter("A linked chart is highlighted row by row while you knit, and Check reports where the rows and the chart disagree.")
     }
+}
+
+/** Marker positions [2, 4] on 6 sts → "2, 2, 2". */
+fun markersToGroups(markers: List<Int>, total: Int?): String {
+    if (markers.isEmpty()) return ""
+    val sorted = markers.sorted()
+    val groups = sorted.mapIndexed { i, m -> m - (if (i == 0) 0 else sorted[i - 1]) }
+    val last = total?.let { it - sorted.last() }?.takeIf { it >= 0 }
+    return (groups + listOfNotNull(last)).joinToString(", ")
+}
+
+/** "2, 2, 2" → markers after 2 and 4 sts (a last group that reaches the end places no marker). */
+fun groupsToMarkers(text: String, total: Int?): List<Int> {
+    val groups = Regex("""\d+""").findAll(text).map { it.value.toInt() }.toList()
+    var sum = 0
+    val positions = groups.map { sum += it; sum }
+    return if (positions.isNotEmpty() && (total == null || positions.last() >= total) && groups.size > 1) positions.dropLast(1) else positions
 }

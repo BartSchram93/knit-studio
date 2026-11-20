@@ -197,3 +197,59 @@ class RowExtractorTest {
         assertTrue(eval.issues.all { it.severity == Severity.WARNING }, eval.issues.toString())
     }
 }
+
+class MarkerTest {
+    private val parser = studio.knit.written.RowParser(lib)
+    private fun eval(row: String, sts: Int, markers: List<Int>?) =
+        studio.knit.written.RowEvaluator().evaluate(parser.parse(row), sts, markersIn = markers)
+
+    @Test fun knitToMarkerAndSlipMarker() {
+        val e = eval("K1, M1L, knit to marker, M1R, slip marker, k2, slip marker, M1L, knit to the last stitch on the needle, M1R, k1.", 6, listOf(2, 4))
+        assertTrue(e.issues.isEmpty(), e.issues.toString())
+        assertEquals(10, e.produced)
+        assertEquals(listOf(4, 6), e.markersOut)
+    }
+
+    @Test fun markersPassedWithoutSmAreCarried() {
+        val e = eval("k to end", 10, listOf(3, 7))
+        assertEquals(listOf(3, 7), e.markersOut)
+    }
+
+    @Test fun placeAndRemoveMarkers() {
+        val e = eval("k3, pm, k4, pm, k3", 10, emptyList())
+        assertEquals(listOf(3, 7), e.markersOut)
+        val r = eval("k to marker, rm, k to marker, sm, k to end", 10, listOf(3, 7))
+        assertTrue(r.issues.isEmpty(), r.issues.toString())
+        assertEquals(listOf(7), r.markersOut)
+    }
+
+    @Test fun toStitchesBeforeMarkerAndNamedMarkers() {
+        val e = eval("k to 2 sts before marker, k2tog, slip M1, ssk, work to M2, slip M2, k to end", 12, listOf(5, 9))
+        assertTrue(e.issues.isEmpty(), e.issues.toString())
+        assertEquals(10, e.produced)
+        assertEquals(listOf(4, 7), e.markersOut)
+    }
+
+    @Test fun missingMarkerIsReported() {
+        val e = eval("k to marker, k to end", 10, emptyList())
+        assertTrue(e.issues.any { it.message.contains("no marker ahead") }, e.issues.toString())
+        val unknown = eval("k to marker, k to end", 10, null)
+        assertTrue(unknown.issues.single().message.startsWith("Marker positions are not known"))
+    }
+
+    @Test fun flatRowsMirrorMarkersAcrossASection() {
+        var n = 0
+        val text = """
+            Cast on 6 sts. Divide the sts with markers: 2 sts, place a marker, 2 sts, place a marker, 2 sts.
+            Row 1 (WS): Purl across.
+            Row 2 (RS): K1, M1L, knit to marker, M1R, slip marker, k2, slip marker, M1L, knit to the last stitch on the needle, M1R, k1. (4 sts have been increased)
+            Work Rows 1 and 2 a total of 5 times.
+        """.trimIndent()
+        val import = RowExtractor.extract(text)
+        assertEquals(listOf(2, 4), import.sections.single().markers)
+        val section = RowExtractor.toSections(import, "uma.pdf") { "m${n++}" }.single()
+        val e = evaluateSection(section, 0, lib)
+        assertTrue(e.issues.isEmpty(), e.issues.toString())
+        assertEquals(26, e.endCount)
+    }
+}

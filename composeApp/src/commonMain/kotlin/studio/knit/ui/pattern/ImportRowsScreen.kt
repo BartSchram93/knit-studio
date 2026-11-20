@@ -96,7 +96,7 @@ fun ImportRowsScreen(patternId: String, fileId: String) {
     fun add() {
         val f = chosen ?: return
         val name = file?.name ?: "PDF"
-        val sections = RowExtractor.toSections(f, name, ::newId)
+        val sections = RowExtractor.toSections(f, name, app.library.value, ::newId)
         editor.update { cur ->
             cur.copy(
                 sections = cur.sections + sections,

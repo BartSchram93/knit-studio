@@ -37,6 +37,8 @@ data class ImportedSection(
     val castOn: SizedInt?,
     val description: String,
     val items: List<ImportItem>,
+    /** Markers after the cast-on (stitches before each), from a sentence such as "2 sts, pm, 2 sts, pm, 2 sts". */
+    val markers: List<Int> = emptyList(),
 ) {
     val rowCount: Int get() = items.count { it is ImportItem.Instruction }
     val repeatCount: Int get() = items.count { it is ImportItem.Repeat }
@@ -121,6 +123,7 @@ object RowExtractor {
         var pendingHeading: String? = null
         var pendingCastOn: SizedInt? = null
         var pendingWsFirst = false
+        var pendingMarkers: List<Int> = emptyList()
         val prose = StringBuilder()
         var row: RowBuilder? = null
 
@@ -134,6 +137,7 @@ object RowExtractor {
             val created = SectionBuilder(pendingHeading ?: "Part ${sections.size + 1}")
             pendingHeading = null
             created.castOn = pendingCastOn; pendingCastOn = null
+            created.markers = pendingMarkers; pendingMarkers = emptyList()
             if (pendingWsFirst) { created.firstSide = Side.WS; pendingWsFirst = false }
             sections += created
             section = created
@@ -152,6 +156,7 @@ object RowExtractor {
             if (text.isEmpty()) return
             for (sentence in splitSentences(text)) handleSentence(sentence, section, warnings, { section = it; it.also { s -> if (s !in sections) sections += s } },
                 onCastOn = { c -> if (section == null || section!!.items.isNotEmpty()) pendingCastOn = c else section!!.castOn = c },
+                onMarkers = { m -> if (section == null || section!!.items.isNotEmpty()) pendingMarkers = m else section!!.markers = m },
                 onWsFirst = { if (section == null || section!!.items.isNotEmpty()) pendingWsFirst = true else section!!.firstSide = Side.WS })
         }
 
@@ -302,11 +307,12 @@ object RowExtractor {
     private fun handleSentence(
         sentence: String, section: SectionBuilder?, warnings: MutableList<String>,
         @Suppress("UNUSED_PARAMETER") replaceSection: (SectionBuilder) -> SectionBuilder,
-        onCastOn: (SizedInt) -> Unit, onWsFirst: () -> Unit,
+        onCastOn: (SizedInt) -> Unit, onWsFirst: () -> Unit, onMarkers: (List<Int>) -> Unit,
     ) {
         val s = normalizeSizes(sentence)
         CAST_ON.find(s)?.let { m -> RowParser.parseSized(m.groupValues[1])?.let(onCastOn) }
         if (FIRST_IS_WS.containsMatchIn(s)) onWsFirst()
+        markerSetup(s)?.let(onMarkers)
         if (section == null || section.items.isEmpty()) {
             section?.let { if (it.description.length < 400) it.description = (it.description + " " + s).trim() }
             return
@@ -327,6 +333,20 @@ object RowExtractor {
         if (repeat != null) { section.items += repeat; return }
         // Short notes between rows are kept; long prose is left out.
         if (s.length <= 200) section.items += ImportItem.Note(s)
+    }
+
+    /** "2 sts, place a marker, 2 sts, place a marker, 2 sts" → [2, 4]. */
+    private fun markerSetup(s: String): List<Int>? {
+        if (!Regex("""marker|\bpm\b""", RegexOption.IGNORE_CASE).containsMatchIn(s)) return null
+        val tokens = Regex("""(\d+)\s*(?:sts?|stitches)\b|place\s+(?:a\s+)?(?:stitch\s+)?marker|\bpm\b""", RegexOption.IGNORE_CASE).findAll(s).toList()
+        var count = 0
+        var numbers = 0
+        val markers = ArrayList<Int>()
+        for (t in tokens) {
+            val n = t.groupValues[1].toIntOrNull()
+            if (n != null) { count += n; numbers++ } else markers += count
+        }
+        return markers.takeIf { it.isNotEmpty() && numbers >= 2 && numbers > markers.size - 1 }
     }
 
     private fun parseRepeat(s: String, section: SectionBuilder, warnings: MutableList<String>): ImportItem.Repeat? {
@@ -377,6 +397,7 @@ object RowExtractor {
         var firstSide = Side.RS
         var castOn: SizedInt? = null
         var description = ""
+        var markers: List<Int> = emptyList()
         val items = ArrayList<ImportItem>()
         var lastNumber: Int? = null
         private val numberToPosition = HashMap<Int, Int>()
@@ -422,29 +443,58 @@ object RowExtractor {
             val kept = items.filterNot { it is ImportItem.Note && BOILERPLATE.containsMatchIn(it.text) }
             val lastWork = kept.indexOfLast { it !is ImportItem.Note }
             val trimmed = kept.take(lastWork + 1) + kept.drop(lastWork + 1).take(MAX_TRAILING_NOTES)
-            return ImportedSection(title, round, if (round) Side.RS else firstSide, castOn, description.trim(), trimmed)
+            return ImportedSection(title, round, if (round) Side.RS else firstSide, castOn, description.trim(), trimmed, markers)
         }
     }
 
     // --- Conversion ----------------------------------------------------------------------------
 
-    /** Turns the import into ordinary written sections of a pattern. */
-    fun toSections(import: PdfImport, pdfName: String, newId: () -> String): List<Section> = import.sections.map { s ->
-        Section(
-            id = newId(),
-            title = s.title,
-            description = s.description.take(300),
-            construction = if (s.round) Construction.ROUND else Construction.FLAT,
-            firstRowSide = s.firstSide,
-            castOn = s.castOn,
-            importedFrom = pdfName,
-            rows = s.items.map { item ->
-                when (item) {
-                    is ImportItem.Instruction -> Row(newId(), RowKind.INSTRUCTION, text = item.text, note = item.note)
-                    is ImportItem.Repeat -> Row(newId(), RowKind.REPEAT_ROWS, repeatFrom = item.from, repeatTo = item.to, repeatTimes = item.more)
-                    is ImportItem.Note -> Row(newId(), RowKind.NOTE, text = item.text)
+    /**
+     * Turns the import into ordinary written sections of a pattern. With a [library], a part
+     * that does not state its own cast-on starts with the stitches (and markers) the part before
+     * it ended with, so its rows can be checked too.
+     */
+    fun toSections(
+        import: PdfImport, pdfName: String,
+        library: studio.knit.stitch.StitchLibrary? = null,
+        newId: () -> String,
+    ): List<Section> {
+        val out = ArrayList<Section>()
+        for (s in import.sections) {
+            var section = Section(
+                id = newId(),
+                title = s.title,
+                description = s.description.take(300),
+                construction = if (s.round) Construction.ROUND else Construction.FLAT,
+                firstRowSide = s.firstSide,
+                castOn = s.castOn,
+                importedFrom = pdfName,
+                markers = s.markers,
+                rows = s.items.map { item ->
+                    when (item) {
+                        is ImportItem.Instruction -> Row(newId(), RowKind.INSTRUCTION, text = item.text, note = item.note)
+                        is ImportItem.Repeat -> Row(newId(), RowKind.REPEAT_ROWS, repeatFrom = item.from, repeatTo = item.to, repeatTimes = item.more)
+                        is ImportItem.Note -> Row(newId(), RowKind.NOTE, text = item.text)
+                    }
+                },
+            )
+            val prev = out.lastOrNull()
+            if (library != null && prev != null && section.castOn == null) {
+                // Every size is followed separately, as the counts differ per size.
+                val ends = (0 until import.sizeCount).map { studio.knit.written.evaluateSection(prev, it, library) }
+                val counts = ends.map { it.endCount }
+                if (counts.all { it != null && it > 0 }) {
+                    section = section.copy(castOn = SizedInt(counts.map { it!! }.let { c -> if (c.distinct().size == 1) listOf(c[0]) else c }))
+                    val last = ends[0].rows.lastOrNull()
+                    val markers = last?.eval?.markersOut
+                    if (section.markers.isEmpty() && markers != null && import.sizeCount >= 1) {
+                        val total = counts[0]!!
+                        section = section.copy(markers = if (prev.construction == Construction.ROUND) markers else markers.map { total - it }.sorted())
+                    }
                 }
-            },
-        )
+            }
+            out += section
+        }
+        return out
     }
 }
