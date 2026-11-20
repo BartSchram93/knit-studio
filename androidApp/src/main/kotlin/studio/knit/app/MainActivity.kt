@@ -21,7 +21,7 @@ import studio.knit.ui.app.AppContainer
 /** Owns the app-wide state so it survives activity recreation (rotation, theme change). */
 class KnitApplication : Application() {
     val container: AppContainer by lazy {
-        val repo = KnitRepository(androidDriver(this))
+        val repo = KnitRepository(androidDriver(this), files = studio.knit.data.AndroidFileStore(this))
         // Read the settings before the first frame so the chosen theme is there from the start.
         val settings = runBlocking { repo.settingsNow() }
         AppContainer(repo, initialSettings = settings)

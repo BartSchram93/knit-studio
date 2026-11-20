@@ -33,7 +33,7 @@ class UiEnv(val app: AppContainer, val repo: KnitRepository)
 
 @OptIn(ExperimentalTestApi::class)
 fun knitUiTest(settings: Settings = Settings(haptics = false), seed: suspend (KnitRepository) -> Unit = {}, block: ComposeUiTest.(UiEnv) -> Unit) {
-    val repo = KnitRepository(jvmDriver(), io = Dispatchers.Unconfined)
+    val repo = KnitRepository(jvmDriver(), io = Dispatchers.Unconfined, files = studio.knit.data.JvmFileStore(java.nio.file.Files.createTempDirectory("knit-ui-files").toFile()))
     runBlocking { repo.updateSettings { settings }; seed(repo) }
     val app = AppContainer(repo, Dispatchers.Unconfined, settings)
     DesktopPlatform.written.clear()

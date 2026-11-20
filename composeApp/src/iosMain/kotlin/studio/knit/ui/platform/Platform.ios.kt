@@ -181,3 +181,21 @@ actual fun appVersion(): String {
     val build = info?.get("CFBundleVersion") as? String
     return if (build != null) "$version ($build)" else version
 }
+
+@OptIn(ExperimentalForeignApi::class)
+@Composable
+actual fun PdfView(bytes: ByteArray, modifier: androidx.compose.ui.Modifier) {
+    val document = remember(bytes) { platform.PDFKit.PDFDocument(data = bytes.toNSData()) }
+    androidx.compose.ui.viewinterop.UIKitView(
+        factory = {
+            platform.PDFKit.PDFView().apply {
+                autoScales = true
+                displayMode = platform.PDFKit.kPDFDisplaySinglePageContinuous
+                displaysPageBreaks = true
+                this.document = document
+            }
+        },
+        modifier = modifier,
+        update = { view -> if (view.document != document) view.document = document },
+    )
+}

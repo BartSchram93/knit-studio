@@ -3,6 +3,11 @@
 ## Unreleased
 
 ### Added
+- **PDF patterns**: add a PDF (New › PDF pattern, or to an existing pattern) and read it in the
+  app with the phone's own PDF viewer (PDFKit on iPhone, PdfRenderer on Android), with a saved row
+  counter underneath. PDFs are stored as files in the app's private storage (not the database,
+  which cannot hold large files on Android) and travel with .knit files and backups. Choosing a
+  PDF under "Import" now creates a PDF pattern.
 - **AltStore source**: every build on `main` publishes `altstore-source.json` with the "latest"
   pre-release. Added once in AltStore › Sources, new versions appear as one-tap updates.
 - Needles have a **Brand** field. The stash groups needles into foldable folders per brand, with

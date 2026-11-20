@@ -41,3 +41,11 @@ actual fun decodeImage(bytes: ByteArray): androidx.compose.ui.graphics.ImageBitm
 
 @Composable
 actual fun appVersion(): String = "development build"
+
+/** Desktop builds are only used for tests and previews; they show a placeholder. */
+@Composable
+actual fun PdfView(bytes: ByteArray, modifier: androidx.compose.ui.Modifier) {
+    androidx.compose.foundation.layout.Box(modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
+        androidx.compose.material3.Text("PDF · ${bytes.size / 1024} KB\n(shown on the phone)", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    }
+}

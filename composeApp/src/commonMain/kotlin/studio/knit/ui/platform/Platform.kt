@@ -37,3 +37,10 @@ expect fun decodeImage(bytes: ByteArray): androidx.compose.ui.graphics.ImageBitm
 /** Version and build number of the installed app, e.g. "1.0.0 (42)". */
 @Composable
 expect fun appVersion(): String
+
+/**
+ * Shows a PDF document with the platform's own renderer: scrolling through the pages and
+ * pinch-to-zoom. iOS uses PDFKit, Android its built-in PdfRenderer.
+ */
+@Composable
+expect fun PdfView(bytes: ByteArray, modifier: androidx.compose.ui.Modifier = androidx.compose.ui.Modifier)

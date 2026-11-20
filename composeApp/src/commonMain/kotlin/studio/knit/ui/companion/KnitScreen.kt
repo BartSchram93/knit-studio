@@ -135,7 +135,12 @@ fun KnitScreen(patternId: String) {
 
     if (tracks.isEmpty()) {
         FixedPage(p.displayName, onBack = nav::back) {
-            EmptyState(Icons.Rows, "Nothing to knit yet", "Add a chart or some written rows to this pattern, then come back.", Modifier.padding(top = 40.dp))
+            val pdf = p.files.firstOrNull()
+            if (pdf != null) {
+                EmptyState(Icons.Document, "Knit from the PDF", "This pattern is a PDF. Open it to read along, with a row counter.", Modifier.padding(top = 40.dp)) {
+                    PrimaryButton("Open PDF", { nav.openPdf(p.id, pdf.id) }, icon = Icons.Document)
+                }
+            } else EmptyState(Icons.Rows, "Nothing to knit yet", "Add a chart, some written rows or a PDF to this pattern, then come back.", Modifier.padding(top = 40.dp))
         }
         return
     }

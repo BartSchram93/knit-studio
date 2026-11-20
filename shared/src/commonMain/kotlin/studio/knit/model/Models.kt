@@ -329,6 +329,8 @@ data class Pattern(
     val measurements: List<Measurement> = emptyList(),
     val notes: String = "",
     val imageIds: List<String> = emptyList(),
+    /** Attached documents such as PDF patterns. */
+    val files: List<AttachedFile> = emptyList(),
     val charts: List<Chart> = emptyList(),
     val sections: List<Section> = emptyList(),
     /** Snapshot of the user-defined stitches this pattern uses, so the file is self-contained. */
@@ -344,6 +346,16 @@ data class Pattern(
     val sizeCount: Int get() = maxOf(1, sizes.size)
     val displayName: String get() = name.ifBlank { "Untitled pattern" }
 }
+
+/** A document kept with a pattern, e.g. the PDF of a bought pattern. The bytes live in a [studio.knit.data.FileStore]. */
+@Serializable
+data class AttachedFile(
+    val id: String,
+    val name: String,
+    val mime: String = "application/pdf",
+    val sizeBytes: Long = 0,
+    val addedAt: Long = 0,
+)
 
 @Serializable
 data class PatternCollection(val id: String, val name: String, val sortIndex: Int = 0)

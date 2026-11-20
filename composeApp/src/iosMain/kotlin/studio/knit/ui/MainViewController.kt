@@ -9,7 +9,7 @@ import studio.knit.ui.app.AppContainer
 
 /** App-wide state for the iOS process; created on first use. */
 private val container: AppContainer by lazy {
-    val repo = KnitRepository(iosDriver())
+    val repo = KnitRepository(iosDriver(), files = studio.knit.data.IosFileStore())
     AppContainer(repo, initialSettings = runBlocking { repo.settingsNow() })
 }
 

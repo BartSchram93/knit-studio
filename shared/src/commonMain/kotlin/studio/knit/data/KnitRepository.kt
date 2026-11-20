@@ -16,6 +16,7 @@ import studio.knit.db.KnitDatabase
 import studio.knit.io.BackupFile
 import studio.knit.io.ImportResult
 import studio.knit.io.KnitFiles
+import studio.knit.model.AttachedFile
 import studio.knit.model.Cable
 import studio.knit.model.Needle
 import studio.knit.model.Pattern
@@ -42,6 +43,8 @@ class KnitRepository(
     private val driver: SqlDriver,
     private val clock: () -> Long = ::nowMillis,
     private val io: CoroutineDispatcher = Dispatchers.Default,
+    /** Where attached documents (PDF patterns) are kept. */
+    private val files: FileStore = InMemoryFileStore(),
 ) {
     private val db = KnitDatabase(driver)
     private val q = db.knitQueries
@@ -110,21 +113,40 @@ class KnitRepository(
             q.upsertImage(newImage, copyId, img.bytes)
             imageMap[img.id] = newImage
         }
+        val fileCopies = original.files.mapNotNull { f -> files.read(f.id)?.let { bytes -> f.copy(id = newId()).also { files.write(it.id, bytes) } } }
         val copy = original.copy(
             id = copyId,
             name = "${original.displayName} copy",
             imageIds = original.imageIds.mapNotNull { imageMap[it] },
+            files = fileCopies,
             favorite = false, archived = false, progress = null, createdAt = clock(),
         )
         save(copy)
     }
 
     suspend fun delete(id: String) = withContext(io) {
+        val attached = getPattern(id)?.files.orEmpty()
         db.transaction {
             q.deleteImagesForPattern(id)
             q.deletePattern(id)
         }
+        attached.forEach { files.delete(it.id) }
     }
+
+    // --- Attached documents ---------------------------------------------------------------
+
+    /**
+     * Stores a document (e.g. a PDF pattern) and returns its description. Add the result to the
+     * pattern's [Pattern.files] to keep it; [deleteFile] removes it again.
+     */
+    suspend fun storeFile(name: String, bytes: ByteArray, mime: String = "application/pdf"): AttachedFile = withContext(io) {
+        val file = AttachedFile(id = newId(), name = name, mime = mime, sizeBytes = bytes.size.toLong(), addedAt = clock())
+        files.write(file.id, bytes)
+        file
+    }
+
+    suspend fun fileBytes(id: String): ByteArray? = withContext(io) { files.read(id) }
+    suspend fun deleteFile(id: String) = withContext(io) { files.delete(id) }
 
     // --- Images ------------------------------------------------------------------------------
 
@@ -219,7 +241,8 @@ class KnitRepository(
     /** The `.knit` file for one pattern, images included. */
     suspend fun exportPattern(id: String, includeProgress: Boolean = true): String? = withContext(io) {
         val pattern = getPattern(id) ?: return@withContext null
-        val images = q.selectImagesForPattern(id).executeAsList().filter { it.id in pattern.imageIds }.associate { it.id to it.bytes }
+        val images = q.selectImagesForPattern(id).executeAsList().filter { it.id in pattern.imageIds }.associate { it.id to it.bytes } +
+            pattern.files.mapNotNull { f -> files.read(f.id)?.let { f.id to it } }
         KnitFiles.encodePattern(if (includeProgress) pattern else pattern.copy(progress = null), images, clock())
     }
 
@@ -254,8 +277,15 @@ class KnitRepository(
                     }
                 }
                 val collections = q.selectCollections().executeAsList().mapTo(HashSet()) { it.id }
+                // Attached documents likewise get fresh ids.
+                val attached = pattern.files.mapNotNull { f ->
+                    val bytes = r.images[f.id]
+                    if (bytes == null) { warnings += "The attached file “${f.name}” was missing from the file"; null }
+                    else f.copy(id = newId(), sizeBytes = bytes.size.toLong()).also { files.write(it.id, bytes) }
+                }
                 pattern = pattern.copy(
                     imageIds = imageIds,
+                    files = attached,
                     collectionId = pattern.collectionId?.takeIf { it in collections },
                     archived = false,
                 )
@@ -277,7 +307,8 @@ class KnitRepository(
             cableStash = q.selectStash(KIND_CABLE).executeAsList().mapNotNull { runCatching { json.decodeFromString(Cable.serializer(), it.json) }.getOrNull() },
             settings = settingsNow().toMap(),
         )
-        val images = q.selectAllImages().executeAsList().associate { it.id to it.bytes }
+        val images = q.selectAllImages().executeAsList().associate { it.id to it.bytes } +
+            backup.patterns.flatMap { it.files }.mapNotNull { f -> files.read(f.id)?.let { f.id to it } }
         val text = KnitFiles.encodeBackup(backup, images)
         db.transaction { q.upsertSetting("lastBackupAt", clock().toString()) }
         text
@@ -293,6 +324,9 @@ class KnitRepository(
             is ImportResult.Failure -> Result.failure(IllegalArgumentException(r.reason))
             is ImportResult.Success -> runCatching {
                 val b = r.value
+                val previousFiles = if (replace) allPatterns().flatMap { it.files }.map { it.id } else emptyList()
+                // Documents are written first; the database only refers to them once they exist.
+                for (f in b.patterns.flatMap { it.files }) r.images[f.id]?.let { files.write(f.id, it) }
                 db.transaction {
                     if (replace) {
                         q.deleteAllPatterns(); q.deleteAllImages(); q.deleteAllStitches()
@@ -313,12 +347,15 @@ class KnitRepository(
                     for (c in b.cableStash) q.upsertStash(c.id, KIND_CABLE, json.encodeToString(Cable.serializer(), c))
                     if (replace) for ((k, v) in Settings.fromMap(b.settings).toMap()) q.upsertSetting(k, v)
                 }
+                val kept = b.patterns.flatMap { it.files }.mapTo(HashSet()) { it.id }
+                previousFiles.filter { it !in kept }.forEach { files.delete(it) }
                 RestoreSummary(b.patterns.size, b.customStitches.size, r.warnings)
             }
         }
     }
 
     suspend fun deleteEverything() = withContext(io) {
+        allPatterns().flatMap { it.files }.forEach { files.delete(it.id) }
         db.transaction {
             q.deleteAllPatterns(); q.deleteAllImages(); q.deleteAllStitches()
             q.deleteAllCollections(); q.deleteAllStash()
@@ -348,6 +385,7 @@ class KnitRepository(
                 val warnings = ArrayList<String>()
                 KnitFiles.sanitize(p, warnings)
                 problems += warnings.map { "“${p.displayName}”: $it" }
+                for (f in p.files) if (!files.exists(f.id)) problems += "“${p.displayName}”: the attached file “${f.name}” is missing"
             }
         }
         problems

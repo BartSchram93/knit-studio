@@ -169,8 +169,15 @@ private fun LazyListScope.overviewTab(
     item {
         val status = remember(p, library) { statusLine(p, library) }
         val canKnit = p.sections.any { s -> s.rows.isNotEmpty() } || p.charts.isNotEmpty()
+        val nav = studio.knit.ui.app.LocalNav.current
+        val pdf = p.files.firstOrNull()
         Row(Modifier.padding(horizontal = PagePadding).padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PrimaryButton(if (p.progress == null) "Start knitting" else "Continue", onKnit, Modifier.weight(1.4f), icon = Icons.Play, enabled = canKnit)
+            if (!canKnit && pdf != null) {
+                // A pattern that is only a PDF: reading it is the way to knit it.
+                PrimaryButton("Open PDF", { nav.openPdf(p.id, pdf.id) }, Modifier.weight(1.4f), icon = Icons.Document)
+            } else {
+                PrimaryButton(if (p.progress == null) "Start knitting" else "Continue", onKnit, Modifier.weight(1.4f), icon = Icons.Play, enabled = canKnit)
+            }
             SoftButton("Export", onExport, Modifier.weight(1f), icon = Icons.Share)
         }
         if (status != null) SectionFooter(status)
@@ -263,6 +270,10 @@ private fun LazyListScope.overviewTab(
         BoundField(p.notes, { v -> editor.update { it.copy(notes = v) } }, Modifier.padding(horizontal = PagePadding).fillMaxWidth(),
             placeholder = "Blocking, finishing, modifications…", singleLine = false, minLines = 3)
     }
+
+    // PDF patterns
+    item { SectionHeader("PDF pattern") }
+    item { PdfList(p, editor) }
 
     // Photos
     item { SectionHeader("Reference photos") }
@@ -429,4 +440,45 @@ fun IssueRow(issue: Issue, onClick: (() -> Unit)?) {
         }
         if (onClick != null) { Spacer(Modifier.width(6.dp)); KIcon(Icons.ChevronRight, Knit.colors.tertiaryLabel, 15.dp, Modifier.padding(top = 4.dp)) }
     }
+}
+
+@Composable
+private fun PdfList(p: Pattern, editor: PatternEditor) {
+    val app = LocalApp.current
+    val nav = studio.knit.ui.app.LocalNav.current
+    val scope = rememberCoroutineScope()
+    val platform = rememberPlatformActions()
+    var removing by remember { mutableStateOf<studio.knit.model.AttachedFile?>(null) }
+    Group {
+        p.files.forEach { f ->
+            val rows = p.progress?.counters?.firstOrNull { it.id == pdfCounterId(f) }?.value
+            ListRow(
+                f.name, subtitle = listOfNotNull(formatSize(f.sizeBytes), rows?.let { "row $it" }).joinToString("  ·  "),
+                leading = { KIcon(Icons.Document, Knit.colors.accent, 24.dp) }, chevron = true,
+                onLongClick = { removing = f },
+            ) { nav.openPdf(p.id, f.id) }
+            RowDivider(54.dp)
+        }
+        ListRow("Add PDF", titleColor = Knit.colors.accent, leading = { KIcon(Icons.Plus, Knit.colors.accent, 22.dp) }) {
+            platform.pickFile { picked ->
+                if (picked == null) return@pickFile
+                scope.launch {
+                    val f = storePickedPdf(app, picked) ?: return@launch
+                    editor.update { it.copy(files = it.files + f) }
+                    nav.openPdf(p.id, f.id)
+                }
+            }
+        }
+    }
+    SectionFooter(if (p.files.isEmpty()) "Keep the PDF of a bought or downloaded pattern here and read it while you knit, with a row counter." else "Touch and hold a PDF to remove it.")
+    removing?.let { f ->
+        ConfirmDialog("Remove “${f.name}”?", "The PDF and its row counter are removed from this pattern.", "Remove",
+            { removePdf(app, editor, f, scope) }, { removing = null }, destructive = true)
+    }
+}
+
+fun formatSize(bytes: Long): String = when {
+    bytes >= 1_000_000 -> "${(bytes / 100_000) / 10.0} MB"
+    bytes >= 1_000 -> "${bytes / 1_000} KB"
+    else -> "$bytes bytes"
 }
