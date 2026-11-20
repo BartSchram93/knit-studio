@@ -20,6 +20,12 @@ interface PlatformActions {
 
     /** Lets the user choose a photo; delivered as JPEG no larger than 1600 px on its long side. */
     fun pickImage(onResult: (ByteArray?) -> Unit)
+
+    /**
+     * The text of a PDF in reading order: "" when the PDF has no text (a scan), null when it
+     * cannot be read at all. Slow for big files; call it off the main thread.
+     */
+    suspend fun pdfText(bytes: ByteArray): String?
 }
 
 @Composable

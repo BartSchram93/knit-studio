@@ -43,9 +43,16 @@ kotlin {
         }
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)
+            // Reads the text of pattern PDFs. Bouncy Castle is only needed for certificate-encrypted
+            // PDFs, which knitting patterns are not; leaving it out keeps the APK ~8 MB smaller.
+            val pdfbox = libs.pdfbox.android.get()
+            implementation("${pdfbox.module}:${pdfbox.versionConstraint.requiredVersion}") {
+                exclude(group = "org.bouncycastle")
+            }
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
+            implementation(libs.pdfbox)
             implementation(libs.kotlinx.coroutines.swing)
         }
         jvmTest.dependencies {

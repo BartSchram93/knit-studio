@@ -12,6 +12,8 @@ activityCompose = "1.13.0"
 robolectric = "4.18"
 androidxTestCore = "1.7.0"
 junit = "4.13.2"
+pdfboxAndroid = "2.0.27.0"
+pdfbox = "3.0.8"
 androidCompileSdk = "37"
 androidMinSdk = "26"
 androidTargetSdk = "36"
@@ -35,6 +37,8 @@ androidx-activity-compose = { module = "androidx.activity:activity-compose", ver
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 androidx-test-core = { module = "androidx.test:core", version.ref = "androidxTestCore" }
 junit = { module = "junit:junit", version.ref = "junit" }
+pdfbox-android = { module = "com.tom-roush:pdfbox-android", version.ref = "pdfboxAndroid" }
+pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
 
 [plugins]
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

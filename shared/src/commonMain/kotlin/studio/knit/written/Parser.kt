@@ -260,6 +260,8 @@ class RowParser(private val library: StitchLibrary) {
 
     private fun parseStitch(chunkIn: String): Node? {
         var chunk = chunkIn
+        // "work the stitches as they appear", "knit the knits and purl the purls" → work as set.
+        AS_THEY_APPEAR.matchEntire(chunk)?.let { m -> chunk = "work " + m.groupValues[1].trim().ifEmpty { "to end" } }
         // k2tbl / p3tbl → ktbl ×2
         TBL.matchEntire(chunk)?.let { m ->
             val def = library[if (m.groupValues[1] == "k") "ktbl" else "ptbl"] ?: return null
@@ -273,6 +275,7 @@ class RowParser(private val library: StitchLibrary) {
         // "work 3 sts in pattern" style text is not interpretable.
         chunk = chunk.removeSuffix(" sts").removeSuffix(" st").removeSuffix(" stitches").trim()
 
+        if (chunk in WHOLE_ROW_WORK) return library["work"]?.let { Node.Stitch(it, Count.ToEnd()) }
         if (chunk == "knit" || chunk == "purl") {
             // A bare "Knit." means the whole row.
             return library[chunk.substring(0, 1)]?.let { Node.Stitch(it, Count.ToEnd()) }
@@ -301,6 +304,7 @@ class RowParser(private val library: StitchLibrary) {
         parseSized(rest)?.let { return Count.Fixed(it) }
         TO_END.matchEntire(rest)?.let { return Count.ToEnd() }
         TO_LAST_ONE.matchEntire(rest)?.let { return Count.ToEnd(SizedInt(1)) }
+        UNTIL_REMAIN.matchEntire(rest)?.let { m -> return parseSized(m.groupValues[1])?.let { Count.ToEnd(it) } }
         TO_LAST.matchEntire(rest)?.let { m -> return parseSized(m.groupValues[1])?.let { Count.ToEnd(it) } }
         TIMES.matchEntire(rest)?.let { m -> return Count.Fixed(m.groupValues[1].toInt()) }
         return when (rest) {
@@ -327,6 +331,11 @@ class RowParser(private val library: StitchLibrary) {
         /** "to the last stitch (on the needle)": one stitch left. */
         private val TO_LAST_ONE = Regex("(?:to|until)\\s+(?:the\\s+)?last\\s+(?:st|stitch)(?:\\s+on\\s+the\\s+(?:left[- ]hand\\s+)?needle)?")
         private val TO_LAST = Regex("(?:to|until)\\s+(?:the\\s+)?last\\s+($SIZED)\\s*(?:sts?|stitches)?")
+        /** "until 3 sts remain (on the left needle)": that many stitches left. */
+        private val UNTIL_REMAIN = Regex("(?:until|till)\\s+($SIZED)\\s*(?:sts?|stitch(?:es)?)\\s+remains?(?:\\s+(?:unworked|on\\s+(?:the\\s+)?(?:left[- ]hand\\s+|lh\\s+)?needle))?")
+        private val AS_THEY_APPEAR = Regex("^(?:(?:work|knit\\s+and\\s+purl)\\s+(?:all\\s+)?(?:the\\s+)?(?:sts?|stitches)\\s+as\\s+they\\s+(?:appear|present(?:\\s+themselves)?)|knit\\s+the\\s+knits\\s+and\\s+purl\\s+the\\s+purls)(.*)$")
+        /** A bare "rib" or "work in pattern" means the whole row. */
+        private val WHOLE_ROW_WORK = setOf("rib", "work in patt", "work in pattern", "work in rib", "work as set", "patt", "cont in patt", "work even")
         private val TIMES = Regex("(?:x\\s*)?(\\d+)(?:\\s*(?:times|x))?")
 
         /** Parses `10` or `10 (12, 14)`. */

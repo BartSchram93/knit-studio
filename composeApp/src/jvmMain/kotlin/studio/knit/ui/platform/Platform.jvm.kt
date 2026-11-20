@@ -24,7 +24,13 @@ object DesktopPlatform : PlatformActions {
     override fun saveFile(name: String, mime: String, bytes: ByteArray) = write(name, bytes)
     override fun pickFile(onResult: (PickedFile?) -> Unit) = onResult(nextFile)
     override fun pickImage(onResult: (ByteArray?) -> Unit) = onResult(nextImage)
+    override suspend fun pdfText(bytes: ByteArray): String? = pdfTextOf(bytes)
 }
+
+/** Text of a PDF with Apache PDFBox. */
+fun pdfTextOf(bytes: ByteArray): String? = runCatching {
+    org.apache.pdfbox.Loader.loadPDF(bytes).use { doc -> org.apache.pdfbox.text.PDFTextStripper().getText(doc) }
+}.getOrNull()
 
 @Composable
 actual fun rememberPlatformActions(): PlatformActions = DesktopPlatform

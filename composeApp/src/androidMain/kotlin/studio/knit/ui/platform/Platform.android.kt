@@ -61,6 +61,9 @@ private class AndroidActions(private val context: Context) : PlatformActions {
     override fun pickFile(onResult: (PickedFile?) -> Unit) { onFile = onResult; launchOpen() }
     override fun pickImage(onResult: (ByteArray?) -> Unit) { onImage = onResult; launchImage() }
 
+    override suspend fun pdfText(bytes: ByteArray): String? =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { pdfTextOf(context, bytes) }
+
     fun written(uri: Uri?) {
         val bytes = pendingSave
         pendingSave = null
@@ -223,3 +226,11 @@ actual fun PdfView(bytes: ByteArray, modifier: androidx.compose.ui.Modifier) {
         }
     }
 }
+
+/** Text of a PDF with PdfBox-Android (a port of Apache PDFBox). */
+fun pdfTextOf(context: Context, bytes: ByteArray): String? = runCatching {
+    com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(context.applicationContext)
+    com.tom_roush.pdfbox.pdmodel.PDDocument.load(bytes).use { doc ->
+        com.tom_roush.pdfbox.text.PDFTextStripper().getText(doc)
+    }
+}.getOrNull()

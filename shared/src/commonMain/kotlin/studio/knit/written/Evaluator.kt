@@ -284,6 +284,10 @@ fun evaluateSection(section: Section, sizeIndex: Int, library: StitchLibrary): S
             raw.copy(issues = listOf(EvalIssue(Severity.INFO, "Not checked — the app does not understand: " + p.parsed.errors.joinToString("; ") { it.fragment })))
         } else if (p.parsed.isEmpty) {
             RowEval(0, current ?: 0, emptyList(), listOf(EvalIssue(Severity.WARNING, "This row has no instructions yet")))
+        } else if (section.importedFrom != null) {
+            // A count that does not add up in an imported row is worth a look, but the designer may
+            // count differently (edge stitches, charts without the border): a warning, not an error.
+            raw!!.copy(issues = raw.issues.map { if (it.severity == Severity.ERROR) it.copy(severity = Severity.WARNING) else it })
         } else raw!!
         out += ExpandedRow(index, index + 1, rowSide, p.source, p.via, p.iteration, p.total, p.parsed, current, eval)
         // Report each distinct problem once, on the row (or repeat) that caused it.

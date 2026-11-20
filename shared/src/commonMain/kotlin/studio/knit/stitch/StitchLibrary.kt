@@ -144,11 +144,20 @@ object BuiltInStitches {
             aliases = listOf("p1fb", "pf&b"),
             description = "Purl bar increase. Turns one stitch into two.",
             instructions = "Purl into the front of the stitch without dropping it, then purl into the back of the same stitch."),
+        s("m3in1", "Make 3 from 1", "M3in1", INCREASE, "triangle", consumes = 1, produces = 3, ws = "m3in1",
+            aliases = listOf("m3", "make 3", "kyk", "k1yok1", "(k1 yo k1) in next st"),
+            description = "Double increase. Turns one stitch into three.",
+            instructions = "(K1, yo, k1) into the same stitch, or as the pattern describes."),
         s("co", "Cast on", "CO", INCREASE, "plus", consumes = 0, produces = 1, ws = "co",
             aliases = listOf("cast on"),
             description = "Adds a new stitch at this point (for example with a backward-loop cast on)."),
 
         // --- Twisted & slipped ---------------------------------------------------------------
+        // "Rib to end", "work in pattern", "work the stitches as they appear": each stitch is worked
+        // as it was set up before, so the count does not change.
+        s("work", "Work as set", "work", BASIC, "text:w", ws = "work", mirror = "work",
+            aliases = listOf("rib", "work in patt", "work in pattern", "work in rib", "work as set", "patt", "cont in patt", "work even"),
+            description = "Knit the knits and purl the purls, or continue the pattern as set. Does not change the stitch count."),
         s("ktbl", "Knit through back loop", "ktbl", TWISTED, "loop", ws = "ptbl",
             aliases = listOf("k1tbl", "k tbl", "k1 tbl"),
             description = "A twisted knit stitch.",
@@ -199,6 +208,15 @@ object BuiltInStitches {
             aliases = listOf("2/1 rpc"), worksOn = WorksOn.RS_ONLY,
             description = "Two knit stitches travel right over one purl stitch.",
             instructions = "Slip 1 to a cable needle and hold in back, k2, then p1 from the cable needle."),
+
+        s("t4f", "2/2 left purl cross", "T4F", CABLE, "cable_l_p", consumes = 4, produces = 4, width = 4, mirror = "t4b",
+            aliases = listOf("2/2 lpc"), worksOn = WorksOn.RS_ONLY,
+            description = "Two knit stitches travel left over two purl stitches.",
+            instructions = "Slip 2 to a cable needle and hold in front, p2, then k2 from the cable needle."),
+        s("t4b", "2/2 right purl cross", "T4B", CABLE, "cable_r_p", consumes = 4, produces = 4, width = 4, mirror = "t4f",
+            aliases = listOf("2/2 rpc"), worksOn = WorksOn.RS_ONLY,
+            description = "Two knit stitches travel right over two purl stitches.",
+            instructions = "Slip 2 to a cable needle and hold in back, k2, then p2 from the cable needle."),
 
         // --- Special -------------------------------------------------------------------------
         s("mb", "Make bobble", "MB", SPECIAL, "bobble", aliases = listOf("bobble", "make bobble"),

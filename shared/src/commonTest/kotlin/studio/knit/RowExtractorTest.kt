@@ -156,7 +156,7 @@ class RowExtractorTest {
         val text = """
             Cast on 12 sts.
             Row 1 (RS): (K2, P2) repeat to end.
-            Row 2 (WS): Work all stitches as they appear.
+            Row 2 (WS): Work the bobble panel over all sts.
             Row 3 (RS): K2tog, knit to end. 11 sts.
         """.trimIndent()
         val section = RowExtractor.toSections(RowExtractor.extract(text), "cowl.pdf") { "id${n++}" }.single()
@@ -168,5 +168,32 @@ class RowExtractorTest {
         assertTrue(eval.rows[1].eval.issues.all { it.severity == Severity.INFO })
         assertNull(eval.rows[2].eval.produced)
         assertTrue(eval.issues.none { it.severity == Severity.ERROR }, eval.issues.toString())
+    }
+
+    @Test fun workAsSetPhrasesKeepTheCount() {
+        var n = 0
+        val text = """
+            Cast on 12 sts.
+            Row 1 (RS): K1, M1R, work in pattern until 1 stitch remains, M1L, K1.
+            Row 2 (WS): Work all stitches as they appear.
+            Row 3 (RS): Rib to end.
+            Row 4 (WS): Knit the knits and purl the purls.
+        """.trimIndent()
+        val section = RowExtractor.toSections(RowExtractor.extract(text), "x.pdf") { "id${n++}" }.single()
+        val eval = evaluateSection(section, 0, lib)
+        assertEquals(listOf(14, 14, 14, 14), eval.rows.map { it.eval.produced })
+        assertTrue(eval.issues.isEmpty(), eval.issues.toString())
+    }
+
+    @Test fun countProblemsInImportedRowsAreWarnings() {
+        var n = 0
+        val text = """
+            Cast on 10 sts.
+            Row 1: K2tog, knit to end. 10 sts.
+        """.trimIndent()
+        val section = RowExtractor.toSections(RowExtractor.extract(text), "x.pdf") { "id${n++}" }.single()
+        val eval = evaluateSection(section, 0, lib)
+        assertTrue(eval.issues.isNotEmpty())
+        assertTrue(eval.issues.all { it.severity == Severity.WARNING }, eval.issues.toString())
     }
 }

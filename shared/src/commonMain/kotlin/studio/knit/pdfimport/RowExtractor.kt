@@ -207,7 +207,8 @@ object RowExtractor {
         val lines = text.split('\n').map { it.replace(Regex("\\s+"), " ").trim() }.filter { it.isNotEmpty() }
         val counts = lines.groupingBy { it }.eachCount()
         return lines.filter { l ->
-            !(counts.getValue(l) >= 3 && parseRowStart(l) == null && !l.contains(":")) && // repeated header/footer
+            // A line repeated on many pages is a header or footer, unless it is stitch text.
+            !(counts.getValue(l) >= 3 && parseRowStart(l) == null && !l.contains(":") && !l.contains(",") && !l.first().isLowerCase()) &&
                 !Regex("""^(page\s+)?\d+(\s*(of|/)\s*\d+)?$""", RegexOption.IGNORE_CASE).matches(l)
         }
     }
