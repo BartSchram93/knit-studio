@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -45,13 +47,18 @@ import studio.knit.ui.theme.Knit
 @Immutable
 data class ChartStyle(
     val paper: Color, val grid: Color, val ink: Color, val shade: Color, val accent: Color,
-    val numbers: Color, val background: Color,
+    val numbers: Color, val background: Color, val wsRow: Color,
+    /** Whether wrong-side rows of flat charts get [wsRow] as their background. */
+    val shadeWs: Boolean = true,
 )
 
 @Composable
 fun rememberChartStyle(): ChartStyle {
     val c = Knit.colors
-    return remember(c) { ChartStyle(c.chartPaper, c.chartGrid, c.chartInk, c.chartShade, c.accent, c.secondaryLabel, c.background) }
+    val settings by studio.knit.ui.app.LocalApp.current.settings.collectAsState()
+    return remember(c, settings.shadeWsRows) {
+        ChartStyle(c.chartPaper, c.chartGrid, c.chartInk, c.chartShade, c.accent, c.secondaryLabel, c.background, c.chartWsRow, settings.shadeWsRows)
+    }
 }
 
 /** Draws one chart symbol into a box [width] cells wide with its top-left corner at ([x], [y]). */
@@ -106,6 +113,12 @@ fun DrawScope.drawChart(
     val h = chart.rows * cell
 
     drawRect(style.paper, origin, Size(w, h))
+    // Wrong-side rows are read in the opposite direction; a faint tint makes them easy to spot.
+    if (style.shadeWs && chart.construction == studio.knit.model.Construction.FLAT) {
+        for (r in rows) if (chart.sideOf(r) == Side.WS) {
+            drawRect(style.wsRow, Offset(left(cols.first), top(r)), Size((cols.last - cols.first + 1) * cell, cell))
+        }
+    }
 
     // Cells.
     for (r in rows) for (c in cols) {

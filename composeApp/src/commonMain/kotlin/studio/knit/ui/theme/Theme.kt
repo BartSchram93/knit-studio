@@ -43,6 +43,8 @@ data class KnitColors(
     val chartGrid: Color,
     val chartInk: Color,
     val chartShade: Color,
+    /** Background of wrong-side rows on flat charts: a faint warm tint, clearly unlike "no stitch" grey. */
+    val chartWsRow: Color,
     val scrim: Color,
     val isDark: Boolean,
 )
@@ -67,6 +69,7 @@ val LightKnitColors = KnitColors(
     chartGrid = Color(0xFFC7C7CC),
     chartInk = Color(0xFF1C1C1E),
     chartShade = Color(0xFFD1D1D6),
+    chartWsRow = Color(0xFFF7EAE4),
     scrim = Color(0x66000000),
     isDark = false,
 )
@@ -91,6 +94,7 @@ val DarkKnitColors = KnitColors(
     chartGrid = Color(0xFF48484A),
     chartInk = Color(0xFFF2F2F7),
     chartShade = Color(0xFF3A3A3C),
+    chartWsRow = Color(0xFF2E2421),
     scrim = Color(0x99000000),
     isDark = true,
 )

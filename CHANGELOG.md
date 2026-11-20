@@ -3,6 +3,15 @@
 ## Unreleased
 
 ### Added
+- Needles have a **Brand** field. The stash groups needles into foldable folders per brand, with
+  a by-size view, quick brand choice and "Add <brand> needle" that picks the next free size.
+  Brands typed into the notes earlier can be moved to the new field in one step (only after
+  confirming; nothing changes on its own).
+- Wrong-side rows of flat charts get a faint tint on screen and in PDFs (Settings › Appearance,
+  and an option in PDF export), with an entry in the PDF stitch key.
+- **skpo** (slip 1, knit 1, pass over) is its own stitch with its own instructions. It was
+  previously treated as another name for ssk. Same stitch count and chart symbol; rows already
+  written as "skpo" keep their wording.
 - iPhone installation with AltStore Classic and a free Apple ID: `IOS_ALTSTORE_SETUP.md`.
 - `scripts/build-ios-ipa.sh`: builds the unsigned IPA and checks bundle ID, version, architecture,
   app name, extensions, provisioning and entitlements.

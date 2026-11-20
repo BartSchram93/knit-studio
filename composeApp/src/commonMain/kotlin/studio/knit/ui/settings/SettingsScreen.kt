@@ -75,6 +75,9 @@ fun SettingsScreen() {
                 SwitchRow("Haptic feedback", settings.haptics, { v -> set { it.copy(haptics = v) } }, "A light tick when drawing stitches and counting rows")
                 RowDivider()
                 SwitchRow("Keep screen on while knitting", settings.keepScreenOn, { v -> set { it.copy(keepScreenOn = v) } })
+                RowDivider()
+                SwitchRow("Tint wrong-side chart rows", settings.shadeWsRows, { v -> set { it.copy(shadeWsRows = v) } },
+                    "Rows knitted from the wrong side get a faint colour, so the reading direction is easy to see")
             }
         }
         item { SectionHeader("PDF export") }

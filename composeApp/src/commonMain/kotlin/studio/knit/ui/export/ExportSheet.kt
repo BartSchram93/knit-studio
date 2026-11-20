@@ -57,7 +57,7 @@ fun ExportSheet(pattern: Pattern, editor: PatternEditor, onDismiss: () -> Unit) 
     val platform = rememberPlatformActions()
     var mode by remember { mutableIntStateOf(0) }
     var options by remember {
-        mutableStateOf(PdfOptions(paper = settings.paper, landscape = settings.pdfLandscape, imperial = settings.imperial, uk = settings.ukTerms))
+        mutableStateOf(PdfOptions(paper = settings.paper, landscape = settings.pdfLandscape, imperial = settings.imperial, uk = settings.ukTerms, shadeWsRows = settings.shadeWsRows))
     }
     var includeProgress by remember { mutableStateOf(true) }
     var busy by remember { mutableStateOf(false) }
@@ -116,6 +116,8 @@ fun ExportSheet(pattern: Pattern, editor: PatternEditor, onDismiss: () -> Unit) 
                 SwitchRow("Charts", options.charts, { options = options.copy(charts = it) })
                 RowDivider()
                 SwitchRow("Stitch key", options.legend, { options = options.copy(legend = it) })
+                RowDivider()
+                SwitchRow("Tint wrong-side rows", options.shadeWsRows, { options = options.copy(shadeWsRows = it) })
                 RowDivider()
                 SwitchRow("Notes", options.notes, { options = options.copy(notes = it) })
             }
