@@ -51,6 +51,7 @@ import studio.knit.ui.written.SectionEditorScreen
 @Serializable data class KnitRoute(val patternId: String)
 @Serializable data class ToolRoute(val tool: String)
 @Serializable data class PdfRoute(val patternId: String, val fileId: String)
+@Serializable data class ImportRowsRoute(val patternId: String, val fileId: String)
 
 /** Navigation actions, so screens never touch the controller directly. */
 class Nav(private val controller: NavHostController) {
@@ -61,6 +62,7 @@ class Nav(private val controller: NavHostController) {
     fun knit(patternId: String) = controller.navigate(KnitRoute(patternId))
     fun tool(tool: String) = controller.navigate(ToolRoute(tool))
     fun openPdf(patternId: String, fileId: String) = controller.navigate(PdfRoute(patternId, fileId))
+    fun openImportRows(patternId: String, fileId: String) = controller.navigate(ImportRowsRoute(patternId, fileId))
 }
 
 val LocalNav = staticCompositionLocalOf<Nav> { error("Nav not provided") }
@@ -88,6 +90,7 @@ fun KnitNavHost() {
                 composable<KnitRoute> { entry -> KnitScreen(entry.toRoute<KnitRoute>().patternId) }
                 composable<ToolRoute> { entry -> ToolScreen(entry.toRoute<ToolRoute>().tool) }
                 composable<PdfRoute> { entry -> entry.toRoute<PdfRoute>().let { studio.knit.ui.pattern.PdfScreen(it.patternId, it.fileId) } }
+                composable<ImportRowsRoute> { entry -> entry.toRoute<ImportRowsRoute>().let { studio.knit.ui.pattern.ImportRowsScreen(it.patternId, it.fileId) } }
             }
             MessageBanner()
         }

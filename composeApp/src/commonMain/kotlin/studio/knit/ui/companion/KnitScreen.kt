@@ -168,9 +168,10 @@ fun KnitScreen(patternId: String) {
         p.displayName, onBack = nav::back,
         actions = {
             IconBtn(Icons.Note, "Notes", { showNotes = true })
-            MenuButton(listOf(
+            MenuButton(listOfNotNull(
                 MenuItem("Go to row…", Icons.Rows) { jumping = true },
                 MenuItem("Size & options", Icons.Settings) { showSetup = true },
+                p.files.firstOrNull { it.mime == "application/pdf" }?.let { pdf -> MenuItem("Open PDF", Icons.Book) { nav.openPdf(p.id, pdf.id) } },
                 MenuItem("Open pattern", Icons.Document) { nav.openPattern(p.id) },
                 MenuItem("Start over", Icons.Undo, destructive = true) { restarting = true },
             ))

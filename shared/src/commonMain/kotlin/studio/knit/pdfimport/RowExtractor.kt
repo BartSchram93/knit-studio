@@ -196,7 +196,9 @@ object RowExtractor {
         val built = kept.map { it.build() }
         val sizeCount = SIZES_STANDARD.findAll(rawText.replace(SIZES_PETITE) { m -> "${m.groupValues[1]} (${m.groupValues[2]}, ${m.groupValues[3]})" })
             .map { m -> m.value.count { it == ',' } + 2 }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key ?: 1
-        return PdfImport(built, sizeCount, warnings.distinct())
+        val fromCounts = built.flatMap { sec -> listOfNotNull(sec.castOn) + sec.items.filterIsInstance<ImportItem.Repeat>().map { it.more } }
+            .maxOfOrNull { it.values.size } ?: 1
+        return PdfImport(built, maxOf(sizeCount, fromCounts), warnings.distinct())
     }
 
     // --- Lines ---------------------------------------------------------------------------------

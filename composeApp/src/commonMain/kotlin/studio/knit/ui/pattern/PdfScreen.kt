@@ -104,6 +104,7 @@ fun PdfScreen(patternId: String, fileId: String) {
         nameFromPdf(file), onBack = nav::back,
         actions = {
             MenuButton(listOf(
+                MenuItem("Read rows from PDF", Icons.Rows) { nav.openImportRows(patternId, file.id) },
                 MenuItem("Share PDF", Icons.Share) { scope.launch { app.repo.fileBytes(file.id)?.let { platform.shareFile(file.name, file.mime, it) } } },
                 MenuItem("Reset row counter", Icons.Undo) { bumpRow(-(counter?.value ?: 0)) },
             ))
