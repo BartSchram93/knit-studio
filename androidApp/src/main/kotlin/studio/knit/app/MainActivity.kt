@@ -24,15 +24,24 @@ class KnitApplication : Application() {
         val repo = KnitRepository(androidDriver(this), files = studio.knit.data.AndroidFileStore(this))
         // Read the settings before the first frame so the chosen theme is there from the start.
         val settings = runBlocking { repo.settingsNow() }
-        AppContainer(repo, initialSettings = settings)
+        AppContainer(repo, initialSettings = settings).also { it.lockScreen = lockScreen }
     }
+    val lockScreen by lazy { AndroidLockScreen(this) }
 }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        val container = (application as KnitApplication).container
+        val app = application as KnitApplication
+        val container = app.container
+        // Android 13+ asks before showing notifications; asked the first time Knit mode opens.
+        val askNotifications = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { granted ->
+            if (!granted) container.message("Without notifications the row cannot be shown on the lock screen. You can allow them in Android settings.")
+        }
+        app.lockScreen.onPermissionNeeded = {
+            if (android.os.Build.VERSION.SDK_INT >= 33) askNotifications.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
         // The activity is recreated when the system theme changes, so this stays current.
         val systemDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         setContent {

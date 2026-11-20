@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Knit Studio works entirely offline and requests no permissions. -->
+    <!-- Knit Studio works entirely offline. Its only permission is for the lock-screen row
+         (a notification while Knit mode is open), asked the first time Knit mode opens. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:name=".KnitApplication"
         android:allowBackup="true"
@@ -21,6 +23,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Back / Next on the lock-screen notification. Not exported: only the app's own
+             notification can send to it. -->
+        <receiver android:name=".KnitStepReceiver" android:exported="false" />
 
         <!-- Shares exported PDFs and .knit files from the private cache, read-only. -->
         <provider
