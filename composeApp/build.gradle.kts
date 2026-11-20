@@ -19,6 +19,9 @@ kotlin {
             baseName = "ComposeApp"
             isStatic = true
         }
+        // The SQLite driver needs the system SQLite library. The Xcode app links it itself
+        // (-lsqlite3); the test executables built by Gradle need it here.
+        target.binaries.all { linkerOpts("-lsqlite3") }
     }
 
     sourceSets {
