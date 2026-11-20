@@ -98,6 +98,8 @@ import studio.knit.ui.platform.KeepScreenOn
 import studio.knit.ui.theme.Knit
 import studio.knit.util.newId
 import studio.knit.util.nowMillis
+import studio.knit.stats.dayKey
+import studio.knit.stats.logRows
 import kotlinx.coroutines.launch
 
 /**
@@ -148,12 +150,20 @@ fun KnitScreen(patternId: String) {
     val pos = track.position(progress)
 
     fun update(transform: (Progress) -> Progress) = editor.update { it.copy(progress = transform(it.progress ?: startProgress(it, nowMillis()))) }
+    val timer = rememberKnitTimer(editor)
     fun step(delta: Int) {
         val before = pos.done
-        update { it.step(track, delta, nowMillis()) }
+        timer.touch()
+        update { pr ->
+            val now = nowMillis()
+            val next = pr.step(track, delta, now)
+            // Rows actually moved (none past the end or below zero) go into today's log.
+            next.logRows(dayKey(now), (next.positions[track.id] ?: 0) - (pr.positions[track.id] ?: 0))
+        }
         haptic(delta > 0 && !track.repeats && before + delta >= track.length)
     }
 
+    androidx.compose.foundation.layout.Box(Modifier.knitActivity(timer)) {
     FixedPage(
         p.displayName, onBack = nav::back,
         actions = {
@@ -202,6 +212,7 @@ fun KnitScreen(patternId: String) {
                 Spacer(Modifier.width(10.dp))
                 Text(if (track.repeats) "${pos.rowIndex + 1} / ${track.length}" else "${pos.done} / ${track.length}", style = Knit.type.footnote, color = Knit.colors.secondaryLabel)
             }
+            TodayLine(progress, timer)
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(
@@ -235,6 +246,7 @@ fun KnitScreen(patternId: String) {
         }
     }
 
+    }
     if (showNotes) NotesSheet(progress, pos, track, ::update) { showNotes = false }
     if (showSetup) SetupSheet(p, progress, ::update) { showSetup = false }
     editingCounter?.let { c ->
@@ -453,4 +465,18 @@ private fun SetupSheet(p: Pattern, progress: Progress, update: ((Progress) -> Pr
             SwitchRow("Haptic feedback", settings.haptics, { v -> scope.launch { app.repo.updateSettings { it.copy(haptics = v) } } })
         }
     }
+}
+
+/** "Today 42 min · 18 rows", and whether the timer is paused for inactivity. */
+@Composable
+fun TodayLine(progress: Progress, timer: KnitTimer) {
+    val today = progress.days[dayKey(nowMillis())]
+    val text = buildString {
+        append("Today ")
+        append(studio.knit.stats.formatDuration(today?.seconds ?: 0))
+        append("  ·  ${today?.rows ?: 0} ${if (today?.rows == 1) "row" else "rows"}")
+        if (timer.paused) append("  ·  timer paused, tap to resume")
+    }
+    Text(text, style = Knit.type.footnote, color = if (timer.paused) Knit.colors.warning else Knit.colors.secondaryLabel,
+        modifier = Modifier.padding(top = 6.dp))
 }

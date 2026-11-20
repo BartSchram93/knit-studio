@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### Added
+- **Knitting stats**: active knitting time is measured automatically in knitting mode and the PDF
+  viewer (pausing after 20 minutes without touching the screen), and rows are logged per day.
+  Each pattern shows its totals, rows per knitting day, rows per hour, streak and a 14-day chart;
+  Tools › Knitting stats shows the same across all patterns and per pattern.
 - **PDF patterns**: add a PDF (New › PDF pattern, or to an existing pattern) and read it in the
   app with the phone's own PDF viewer (PDFKit on iPhone, PdfRenderer on Android), with a saved row
   counter underneath. PDFs are stored as files in the app's private storage (not the database,

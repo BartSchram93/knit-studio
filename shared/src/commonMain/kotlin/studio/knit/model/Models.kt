@@ -308,7 +308,12 @@ data class Progress(
     val positions: Map<String, Int> = emptyMap(),
     val counters: List<Counter> = emptyList(),
     val notes: List<ProjectNote> = emptyList(),
+    /** Knitting log per local calendar day ("2026-11-20"): rows worked and active time. */
+    val days: Map<String, DayLog> = emptyMap(),
 )
+
+@Serializable
+data class DayLog(val rows: Int = 0, val seconds: Long = 0)
 
 // ---------------------------------------------------------------------------------------------
 // Pattern

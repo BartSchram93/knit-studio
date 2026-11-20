@@ -271,6 +271,16 @@ private fun LazyListScope.overviewTab(
             placeholder = "Blocking, finishing, modifications…", singleLine = false, minLines = 3)
     }
 
+    // Knitting statistics
+    item {
+        val today = remember { studio.knit.stats.dayKey(nowMillis()) }
+        val stats = remember(p.progress?.days, today) { studio.knit.stats.statsOf(listOfNotNull(p.progress?.days), today) }
+        if (!stats.isEmpty) {
+            SectionHeader("Knitting stats")
+            studio.knit.ui.tools.StatsBlock(stats)
+        }
+    }
+
     // PDF patterns
     item { SectionHeader("PDF pattern") }
     item { PdfList(p, editor) }

@@ -48,6 +48,8 @@ import studio.knit.ui.components.MenuButton
 import studio.knit.ui.components.MenuItem
 import studio.knit.ui.components.pressable
 import studio.knit.ui.platform.KeepScreenOn
+import studio.knit.ui.companion.knitActivity
+import studio.knit.stats.logRows
 import studio.knit.ui.platform.PdfView
 import studio.knit.ui.platform.rememberPlatformActions
 import studio.knit.ui.theme.Knit
@@ -80,13 +82,16 @@ fun PdfScreen(patternId: String, fileId: String) {
         return
     }
     val counter = pattern?.progress?.counters?.firstOrNull { it.id == pdfCounterId(file) }
+    val timer = studio.knit.ui.companion.rememberKnitTimer(editor)
     fun bumpRow(delta: Int) {
+        timer.touch()
         editor.update { p ->
             val progress = p.progress ?: startProgress(p, nowMillis())
             val existing = progress.counters.firstOrNull { it.id == pdfCounterId(file) }
                 ?: Counter(id = pdfCounterId(file), name = "Rows · ${file.name.removeSuffix(".pdf")}")
             val next = existing.bump(delta)
-            p.copy(progress = progress.copy(
+            val day = studio.knit.stats.dayKey(nowMillis())
+            p.copy(progress = progress.logRows(day, next.value - existing.value).copy(
                 lastKnitAt = nowMillis(),
                 counters = if (progress.counters.any { it.id == next.id }) progress.counters.map { if (it.id == next.id) next else it } else progress.counters + next,
             ))
@@ -94,6 +99,7 @@ fun PdfScreen(patternId: String, fileId: String) {
         haptic(false)
     }
 
+    Box(Modifier.knitActivity(timer)) {
     FixedPage(
         nameFromPdf(file), onBack = nav::back,
         actions = {
@@ -113,6 +119,7 @@ fun PdfScreen(patternId: String, fileId: String) {
         }
         // Row counter.
         Column(Modifier.fillMaxWidth().background(Knit.colors.surface).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
+            pattern?.progress?.let { studio.knit.ui.companion.TodayLine(it, timer) }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(Knit.colors.fill).pressable(enabled = (counter?.value ?: 0) > 0) { bumpRow(-1) }
@@ -136,6 +143,7 @@ fun PdfScreen(patternId: String, fileId: String) {
                 }
             }
         }
+    }
     }
 }
 
