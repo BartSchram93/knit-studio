@@ -142,6 +142,7 @@ class RepositoryTest {
         a.saveCollection(PatternCollection("col-1", "Gifts"))
         a.saveYarn(Yarn(id = "y", brand = "Holst", name = "Supersoft"))
         a.saveNeedle(Needle(id = "n", sizeMm = 3.5))
+        a.saveCable(studio.knit.model.Cable(id = "c", brand = "ChiaoGoo", lengthCm = 80.0, connector = "[S]", count = 2))
         a.updateSettings { it.copy(imperial = true, paper = PaperSize.LETTER) }
         a.addImage("second", byteArrayOf(1, 2))
         val backup = a.exportBackup()
@@ -161,6 +162,7 @@ class RepositoryTest {
         assertEquals(listOf("Gifts"), b.collections.first().map { it.name })
         assertEquals(listOf("Holst Supersoft"), b.yarnStash.first().map { it.displayName })
         assertEquals(listOf(3.5), b.needleStash.first().map { it.sizeMm })
+        assertEquals(listOf(Triple(80.0, "[S]", 2)), b.cableStash.first().map { Triple(it.lengthCm, it.connector, it.count) })
         assertEquals(listOf("Nupp"), b.customStitches.first().map { it.name })
 
         // A bad backup changes nothing.
@@ -244,5 +246,13 @@ class RepositoryTest {
             assertEquals(1, r.collections.first().size)
             assertTrue(r.integrityCheck().isEmpty())
         } finally { file.delete() }
+    }
+
+    @Test fun backupsMadeBeforeCablesExistedStillRestore() = runTest {
+        val old = """{"format":"knit-studio.backup","version":1,"patterns":[],"needleStash":[{"id":"n","sizeMm":4.0,"notes":"ChiaoGoo"}]}"""
+        val r = repo()
+        r.restoreBackup(old, replace = true).getOrThrow()
+        assertEquals(listOf("ChiaoGoo"), r.needleStash.first().map { it.notes })
+        assertTrue(r.cableStash.first().isEmpty())
     }
 }

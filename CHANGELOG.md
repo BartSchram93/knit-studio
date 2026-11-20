@@ -7,6 +7,10 @@
   a by-size view, quick brand choice and "Add <brand> needle" that picks the next free size.
   Brands typed into the notes earlier can be moved to the new field in one step (only after
   confirming; nothing changes on its own).
+- **Cables for interchangeable needles**: cables are stash items of their own (length, connector,
+  material, number), shown inside the brand folder next to the tips, with "Add <brand> cable".
+  For interchangeable needles the length field is now labelled **Tip length**. Cables are
+  included in backups; older backups restore unchanged.
 - Wrong-side rows of flat charts get a faint tint on screen and in PDFs (Settings › Appearance,
   and an option in PDF export), with an entry in the PDF stitch key.
 - **skpo** (slip 1, knit 1, pass over) is its own stitch with its own instructions. It was

@@ -30,7 +30,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import studio.knit.calc.Needles
 import studio.knit.calc.pretty
+import studio.knit.model.Cable
 import studio.knit.model.Needle
+import studio.knit.stash.CommonCableLengthsCm
 import studio.knit.model.NeedleType
 import studio.knit.model.Yarn
 import studio.knit.model.YarnWeight
@@ -42,6 +44,7 @@ import studio.knit.ui.components.Group
 import studio.knit.ui.components.PagePadding
 import studio.knit.ui.components.PickerRow
 import studio.knit.ui.components.PrimaryButton
+import studio.knit.ui.components.SectionFooter
 import studio.knit.ui.components.SectionHeader
 import studio.knit.ui.components.Sheet
 import studio.knit.ui.components.pressable
@@ -139,7 +142,8 @@ fun NeedleSheet(
         Column(Modifier.padding(horizontal = PagePadding).padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 BoundNumberField(n.sizeMm, { v -> if (v != null && v > 0) n = n.copy(sizeMm = v) }, Modifier.weight(1f), "Diameter", "mm", decimals = 2)
-                BoundNumberField(n.lengthCm?.let { units.lengthValue(it) }, { v -> n = n.copy(lengthCm = v?.takeIf { it > 0 }?.let { units.toCm(it) }) }, Modifier.weight(1f), "Length", units.lengthUnit, decimals = 0)
+                BoundNumberField(n.lengthCm?.let { units.lengthValue(it) }, { v -> n = n.copy(lengthCm = v?.takeIf { it > 0 }?.let { units.toCm(it) }) }, Modifier.weight(1f),
+                    if (n.type == NeedleType.INTERCHANGEABLE) "Tip length" else "Length", units.lengthUnit, decimals = 0)
             }
             BoundField(n.material, { n = n.copy(material = it) }, Modifier.fillMaxWidth(), "Material", "Bamboo, steel, wood…")
         }
@@ -154,6 +158,7 @@ fun NeedleSheet(
         }
         SectionHeader("Type")
         Group { PickerRow("Needle type", NeedleType.entries, n.type, { it.label }) { n = n.copy(type = it) } }
+        if (n.type == NeedleType.INTERCHANGEABLE) SectionFooter("Length is the length of the tips. Add the cables you own separately, under the brand in Stash.")
         SectionHeader("Notes")
         BoundField(n.notes, { n = n.copy(notes = it) }, Modifier.padding(horizontal = PagePadding).fillMaxWidth(), placeholder = "e.g. for the ribbing")
         if (onDelete != null) {
@@ -172,6 +177,54 @@ fun yarnSummary(y: Yarn, units: studio.knit.calc.UnitFormat, uk: Boolean): Strin
 
 /** One line describing a needle; [withBrand] is false where the brand is already the heading. */
 fun needleSummary(n: Needle, units: studio.knit.calc.UnitFormat, withBrand: Boolean = true): String = listOfNotNull(
-    n.type.label, n.lengthCm?.let { units.length(it, 0) }, n.material.takeIf { it.isNotBlank() },
+    n.type.label, n.lengthCm?.let { units.length(it, 0) + if (n.type == NeedleType.INTERCHANGEABLE) " tips" else "" }, n.material.takeIf { it.isNotBlank() },
     n.brand.trim().takeIf { withBrand && it.isNotEmpty() }, n.notes.takeIf { it.isNotBlank() },
 ).joinToString("  ·  ")
+
+/** "80 cm cable" — the way cables are labelled. */
+fun cableTitle(c: Cable, units: studio.knit.calc.UnitFormat): String = "${units.length(c.lengthCm, 0)} cable"
+
+fun cableSummary(c: Cable): String = listOfNotNull(
+    c.connector.trim().takeIf { it.isNotEmpty() }, c.material.trim().takeIf { it.isNotEmpty() },
+    c.count.takeIf { it > 1 }?.let { "×$it" }, c.notes.trim().takeIf { it.isNotEmpty() },
+).joinToString("  ·  ")
+
+/** Edits a cable for interchangeable needle tips. */
+@Composable
+fun CableSheet(initial: Cable, isNew: Boolean, onSave: (Cable) -> Unit, onDelete: (() -> Unit)?, onDismiss: () -> Unit, brands: List<String> = emptyList()) {
+    val units = unitFormat()
+    var c by remember { mutableStateOf(initial) }
+    Sheet(if (isNew) "New cable" else "Cable", onDismiss, doneLabel = "Save", onDone = { onSave(c); onDismiss() }) {
+        SectionHeader("Length")
+        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = PagePadding), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (l in CommonCableLengthsCm) {
+                studio.knit.ui.components.Chip(units.length(l, 0), kotlin.math.abs(c.lengthCm - l) < 0.5, { c = c.copy(lengthCm = l) })
+            }
+        }
+        BoundNumberField(units.lengthValue(c.lengthCm), { v -> if (v != null && v > 0) c = c.copy(lengthCm = units.toCm(v)) },
+            Modifier.padding(horizontal = PagePadding).padding(top = 12.dp).fillMaxWidth(), "Length", units.lengthUnit, decimals = 0)
+        SectionFooter("As printed on the cable or its packaging.")
+        SectionHeader("Brand")
+        BoundField(c.brand, { c = c.copy(brand = it) }, Modifier.padding(horizontal = PagePadding).fillMaxWidth(), placeholder = "e.g. ChiaoGoo", capitalization = KeyboardCapitalization.Words)
+        if (brands.isNotEmpty()) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = PagePadding).padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for (b in brands) studio.knit.ui.components.Chip(b, c.brand.trim().equals(b, ignoreCase = true), { c = c.copy(brand = b) })
+            }
+        }
+        SectionHeader("Details")
+        Column(Modifier.padding(horizontal = PagePadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                BoundField(c.connector, { c = c.copy(connector = it) }, Modifier.weight(1f), "Connector / size", "e.g. [S] or small", capitalization = KeyboardCapitalization.None)
+                BoundField(c.material, { c = c.copy(material = it) }, Modifier.weight(1f), "Material", "e.g. steel, nylon")
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Group { studio.knit.ui.components.Stepper(c.count, { c = c.copy(count = it) }, 1..20, Modifier.padding(horizontal = 16.dp, vertical = 8.dp), "How many") }
+        SectionHeader("Notes")
+        BoundField(c.notes, { c = c.copy(notes = it) }, Modifier.padding(horizontal = PagePadding).fillMaxWidth(), placeholder = "e.g. swivel, from the Twist set")
+        if (onDelete != null) {
+            Spacer(Modifier.height(22.dp))
+            PrimaryButton("Remove cable", { onDelete(); onDismiss() }, Modifier.padding(horizontal = PagePadding).fillMaxWidth(), destructive = true)
+        }
+    }
+}

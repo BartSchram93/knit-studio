@@ -117,6 +117,23 @@ data class Needle(
     val brand: String = "",
 )
 
+/**
+ * A cable for interchangeable needle tips. Cables belong to a brand rather than to one needle:
+ * any tip of the brand (with a matching connector) fits on it.
+ */
+@Serializable
+data class Cable(
+    val id: String,
+    val brand: String = "",
+    /** Length as printed on the cable or its packaging. */
+    val lengthCm: Double = 80.0,
+    /** Connector or cable size where a brand has several, e.g. "[S]" or "small". */
+    val connector: String = "",
+    val count: Int = 1,
+    val material: String = "",
+    val notes: String = "",
+)
+
 /** A named body or garment measurement in centimetres, one value per size. */
 @Serializable
 data class Measurement(

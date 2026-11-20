@@ -16,6 +16,7 @@ import studio.knit.db.KnitDatabase
 import studio.knit.io.BackupFile
 import studio.knit.io.ImportResult
 import studio.knit.io.KnitFiles
+import studio.knit.model.Cable
 import studio.knit.model.Needle
 import studio.knit.model.Pattern
 import studio.knit.model.PatternCollection
@@ -180,6 +181,12 @@ class KnitRepository(
 
     suspend fun saveYarn(y: Yarn) = withContext(io) { q.upsertStash(y.id, KIND_YARN, json.encodeToString(Yarn.serializer(), y)) }
     suspend fun saveNeedle(n: Needle) = withContext(io) { q.upsertStash(n.id, KIND_NEEDLE, json.encodeToString(Needle.serializer(), n)) }
+
+    val cableStash: Flow<List<Cable>> = q.selectStash(KIND_CABLE).asFlow().mapToList(io).map { rows ->
+        rows.mapNotNull { runCatching { json.decodeFromString(Cable.serializer(), it.json) }.getOrNull() }.sortedBy { it.lengthCm }
+    }
+
+    suspend fun saveCable(c: Cable) = withContext(io) { q.upsertStash(c.id, KIND_CABLE, json.encodeToString(Cable.serializer(), c)) }
     suspend fun deleteStash(id: String) = withContext(io) { q.deleteStash(id) }
 
     // --- Settings ----------------------------------------------------------------------------
@@ -256,6 +263,7 @@ class KnitRepository(
             collections = q.selectCollections().executeAsList().map { PatternCollection(it.id, it.name, it.sort_index.toInt()) },
             yarnStash = q.selectStash(KIND_YARN).executeAsList().mapNotNull { runCatching { json.decodeFromString(Yarn.serializer(), it.json) }.getOrNull() },
             needleStash = q.selectStash(KIND_NEEDLE).executeAsList().mapNotNull { runCatching { json.decodeFromString(Needle.serializer(), it.json) }.getOrNull() },
+            cableStash = q.selectStash(KIND_CABLE).executeAsList().mapNotNull { runCatching { json.decodeFromString(Cable.serializer(), it.json) }.getOrNull() },
             settings = settingsNow().toMap(),
         )
         val images = q.selectAllImages().executeAsList().associate { it.id to it.bytes }
@@ -287,6 +295,7 @@ class KnitRepository(
                     for (c in b.collections) q.upsertCollection(c.id, c.name, c.sortIndex.toLong())
                     for (y in b.yarnStash) q.upsertStash(y.id, KIND_YARN, json.encodeToString(Yarn.serializer(), y))
                     for (n in b.needleStash) q.upsertStash(n.id, KIND_NEEDLE, json.encodeToString(Needle.serializer(), n))
+                    for (c in b.cableStash) q.upsertStash(c.id, KIND_CABLE, json.encodeToString(Cable.serializer(), c))
                     if (replace) for ((k, v) in Settings.fromMap(b.settings).toMap()) q.upsertSetting(k, v)
                 }
                 RestoreSummary(b.patterns.size, b.customStitches.size, r.warnings)
@@ -347,5 +356,6 @@ class KnitRepository(
     private companion object {
         const val KIND_YARN = "yarn"
         const val KIND_NEEDLE = "needle"
+        const val KIND_CABLE = "cable"
     }
 }

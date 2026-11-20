@@ -48,4 +48,28 @@ class NeedleStashTest {
         assertShown("2.75 mm (US 2)")
         shot("34-stash-by-size")
     }
+
+    @Test fun cablesLiveInTheBrandFolder() = knitUiTest(seed = { repo ->
+        seedRealStash(repo)
+        repo.needleStash.first().forEach { repo.saveNeedle(studio.knit.stash.moveNotesToBrand(it)) }
+    }) { env ->
+        tap("Tools"); tap("Yarn & needle stash")
+        tap("ChiaoGoo")
+        assertShown("CABLES")
+        assertShown("12 cm tips")
+        tap("Add ChiaoGoo cable")
+        assertShown("New cable")
+        tap("60 cm")
+        tap("Save")
+        waitForIdle()
+        val cables = runBlocking { env.repo.cableStash.first() }
+        assertEquals(listOf("ChiaoGoo" to 60.0), cables.map { it.brand to it.lengthCm })
+        assertShown("60 cm cable")
+        assertShown("7 · 1 cable")
+        shot("35-stash-cables")
+        // Tip length is labelled as such for interchangeable needles.
+        tap("1.5 mm (US 000)")
+        assertShown("Tip length")
+        shot("36-needle-tip-length")
+    }
 }

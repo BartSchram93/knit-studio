@@ -9,6 +9,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import studio.knit.chart.MAX_CHART_SIZE
 import studio.knit.model.Cell
+import studio.knit.model.Cable
 import studio.knit.model.Chart
 import studio.knit.model.Needle
 import studio.knit.model.Pattern
@@ -52,6 +53,7 @@ data class BackupFile(
     val collections: List<PatternCollection> = emptyList(),
     val yarnStash: List<Yarn> = emptyList(),
     val needleStash: List<Needle> = emptyList(),
+    val cableStash: List<Cable> = emptyList(),
     val settings: Map<String, String> = emptyMap(),
 )
 

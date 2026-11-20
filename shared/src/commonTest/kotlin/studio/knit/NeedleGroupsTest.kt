@@ -1,6 +1,7 @@
 package studio.knit
 
 import kotlinx.serialization.json.Json
+import studio.knit.model.Cable
 import studio.knit.model.Needle
 import studio.knit.model.NeedleType
 import studio.knit.stash.groupByBrand
@@ -8,6 +9,7 @@ import studio.knit.stash.groupBySize
 import studio.knit.stash.knownBrands
 import studio.knit.stash.moveNotesToBrand
 import studio.knit.stash.needlesWithBrandInNotes
+import studio.knit.stash.nextCable
 import studio.knit.stash.nextInSet
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -53,5 +55,24 @@ class NeedleGroupsTest {
         val needle = Json { ignoreUnknownKeys = true }.decodeFromString(Needle.serializer(), old)
         assertEquals("" to "ChiaoGoo", needle.brand to needle.notes)
         assertTrue(needlesWithBrandInNotes(listOf(needle)).isNotEmpty())
+    }
+
+    @Test fun cablesJoinTheirBrandFolder() {
+        val cables = listOf(Cable("c1", "ChiaoGoo", 80.0, "[S]"), Cable("c2", "chiaogoo", 40.0, "[S]"), Cable("c3", "Addi", 60.0))
+        val groups = groupByBrand(listOf(n(4.0, "ChiaoGoo"), n(3.0, "Seeknit")), cables)
+        assertEquals(listOf("Addi", "ChiaoGoo", "Seeknit"), groups.map { it.brand })
+        val chiao = groups.single { it.brand == "ChiaoGoo" }
+        assertEquals(listOf(40.0, 80.0), chiao.cables.map { it.lengthCm })
+        assertEquals(1, chiao.needles.size)
+        // A brand with only cables still gets its folder.
+        assertEquals(0, groups.single { it.brand == "Addi" }.needles.size)
+        assertEquals(listOf("Addi", "ChiaoGoo", "Seeknit"), knownBrands(groups.flatMap { it.needles }, cables))
+    }
+
+    @Test fun nextCableTakesTheNextCommonLengthAndConnector() {
+        val next = nextCable(listOf(Cable("a", "ChiaoGoo", 40.0, "[S]", material = "Red lace"), Cable("b", "ChiaoGoo", 60.0, "[S]")), "ChiaoGoo", "new")
+        assertEquals(80.0, next.lengthCm)
+        assertEquals("[S]" to "ChiaoGoo", next.connector to next.brand)
+        assertEquals(20.0, nextCable(emptyList(), "Addi", "x").lengthCm)
     }
 }
