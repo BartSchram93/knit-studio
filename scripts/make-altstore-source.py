@@ -38,6 +38,13 @@ source = {
             "localizedDescription": "Charts, written rows, validation, PDF export and a knitting companion. Works offline; your patterns stay on your phone.",
             "iconURL": icon,
             "tintColor": tint,
+            # Older AltStore Classic versions read these app-level fields instead of "versions";
+            # newer ones prefer "versions". Both describe the same build.
+            "version": meta["version"],
+            "versionDate": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "versionDescription": notes or "Build " + meta["build"],
+            "downloadURL": base_url + "/" + meta["file"],
+            "size": int(meta["size"]),
             "versions": [
                 {
                     "version": meta["version"],

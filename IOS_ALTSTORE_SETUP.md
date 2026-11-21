@@ -258,6 +258,7 @@ Official references:
 
 | Problem | What to do |
 |---|---|
+| **AltStore says there are no updates** | Open *Browse* (or *Sources › Knit Studio*) and tap Knit Studio: if it shows **Update**, **Install** or **Free** instead of *Open*, tap it — it installs over the current app with the same identifier, so the data stays (back up first). This happens when Knit Studio was first installed by hand from an IPA. Also check the source is listed under *Sources*, and that AltStore itself is up to date (*AltStore › Settings*, bottom). |
 | **"Could not find AltServer"** / installing or refreshing hangs | AltServer is running (tray icon) · phone and PC on the same Wi-Fi · *Sync over Wi-Fi* ticked in iTunes · AltServer allowed through Windows Firewall · iCloud for Windows is running and Bonjour is installed (it comes with iTunes) · plug in the cable to be sure. If the PC does not see the phone at all: unlock the phone, then restart the **Apple Mobile Device Service** (*Win+R* › `services.msc`) |
 | **Errors mentioning a socket or connection right after install** | Turn on **Developer Mode** (step 3) |
 | **Errors about iCloud, "anisette" or sign-in on Windows** | iTunes and iCloud must be the versions downloaded from Apple, not the Microsoft Store. Uninstall the Store versions, install Apple's, sign in to iCloud, restart AltServer as administrator |
