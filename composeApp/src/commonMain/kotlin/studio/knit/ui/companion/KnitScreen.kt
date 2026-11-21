@@ -165,7 +165,7 @@ fun KnitScreen(patternId: String) {
 
     // The row to knit, on the lock screen while Knit mode is open.
     androidx.compose.runtime.LaunchedEffect(p, library, settings.lockScreenRow) {
-        if (settings.lockScreenRow) studio.knit.companion.knitGlance(p, library)?.let { app.lockScreen.show(it) } else app.lockScreen.clear()
+        if (settings.lockScreenRow) studio.knit.companion.knitGlance(p, library, dayKey(nowMillis()), settings.ukTerms)?.let { app.lockScreen.show(it) } else app.lockScreen.clear()
     }
     androidx.compose.runtime.DisposableEffect(p.id) { onDispose { app.lockScreen.clear() } }
 

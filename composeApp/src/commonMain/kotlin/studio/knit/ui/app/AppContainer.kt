@@ -64,7 +64,7 @@ class AppContainer(
             editor.loaded.first { it }
             editor.update { it.stepKnitting(library.value, delta, studio.knit.util.nowMillis()) }
             editor.flushAndWait()
-            editor.current?.let { p -> studio.knit.companion.knitGlance(p, library.value)?.let { lockScreen.show(it) } }
+            editor.current?.let { p -> studio.knit.companion.knitGlance(p, library.value, studio.knit.stats.dayKey(studio.knit.util.nowMillis()), settings.value.ukTerms)?.let { lockScreen.show(it) } }
             onDone()
         }
     }

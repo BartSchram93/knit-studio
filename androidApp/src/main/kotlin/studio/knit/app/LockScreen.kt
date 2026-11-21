@@ -69,13 +69,34 @@ class AndroidLockScreen(private val context: Context) : LockScreenKnitting {
                 context, 0, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-            val text = g.instruction + if (g.detail.isNotEmpty()) "\n${g.detail}" else ""
+            // "Row 3 of 15 (RS)" → badge "ROW 3/15" and side "RS".
+            val m = Regex("""^(\w+) (\d+) of (\d+)(?: \((RS|WS)\))?$""").find(g.row)
+            val badge = m?.let { "${it.groupValues[1].uppercase()} ${it.groupValues[2]}/${it.groupValues[3]}" } ?: g.row.uppercase()
+            val side = m?.groupValues?.get(4).orEmpty()
+            val detail = listOf(g.part, g.detail).filter { it.isNotBlank() }.joinToString(" · ")
+            val big = android.widget.RemoteViews(context.packageName, R.layout.notification_row).apply {
+                setTextViewText(R.id.row, badge)
+                setTextViewText(R.id.side, side)
+                setTextViewText(R.id.today, g.today)
+                setTextViewText(R.id.detail, detail)
+                setTextViewText(R.id.instruction, g.instruction)
+                val f = g.fraction
+                if (f == null) setViewVisibility(R.id.progress, android.view.View.GONE)
+                else setProgressBar(R.id.progress, 1000, (f * 1000).toInt(), false)
+            }
+            val small = android.widget.RemoteViews(context.packageName, R.layout.notification_row_small).apply {
+                setTextViewText(R.id.row, if (side.isEmpty()) badge else "$badge · $side")
+                setTextViewText(R.id.instruction, g.instruction)
+            }
             return NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_knit)
+                // Title and text stay set for accessibility, watches and the tests.
                 .setContentTitle("${g.row} · ${g.part}")
                 .setContentText(g.instruction)
-                .setStyle(NotificationCompat.BigTextStyle().bigText(text))
                 .setSubText(g.patternName)
+                .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+                .setCustomContentView(small)
+                .setCustomBigContentView(big)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
@@ -84,7 +105,6 @@ class AndroidLockScreen(private val context: Context) : LockScreenKnitting {
                 .setCategory(NotificationCompat.CATEGORY_PROGRESS)
                 .setContentIntent(open)
                 .apply {
-                    g.fraction?.let { setProgress(1000, (it * 1000).toInt(), false) }
                     if (g.canGoBack) addAction(0, "Back", step(-1, 1))
                     if (!g.finished) addAction(0, "Next row", step(1, 2))
                 }

@@ -36,6 +36,13 @@ class LockScreenTest {
         assertEquals("Row 1 of 2 (RS) · Rib", posted.extras.getString("android.title"))
         assertEquals(listOf("Next row"), posted.actions.map { it.title.toString() })
         assertEquals(android.app.Notification.VISIBILITY_PUBLIC, posted.visibility)
+        // The custom layouts inflate and show the row and the instruction.
+        val big = posted.bigContentView.apply(app, android.widget.FrameLayout(app))
+        assertEquals("ROW 1/2", big.findViewById<android.widget.TextView>(R.id.row).text.toString())
+        assertEquals("RS", big.findViewById<android.widget.TextView>(R.id.side).text.toString())
+        assertEquals("K2, P2, rep to end.", big.findViewById<android.widget.TextView>(R.id.instruction).text.toString())
+        val small = posted.contentView.apply(app, android.widget.FrameLayout(app))
+        assertEquals("ROW 1/2 · RS", small.findViewById<android.widget.TextView>(R.id.row).text.toString())
 
         // Press "Next row" the way the notification does.
         app.sendBroadcast(Intent(app, KnitStepReceiver::class.java).setAction(AndroidLockScreen.ACTION_STEP)

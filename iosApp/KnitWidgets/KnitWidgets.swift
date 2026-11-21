@@ -43,6 +43,20 @@ struct KnitLiveActivity: Widget {
     }
 }
 
+/// "Row 12 of 80 (WS)" → "ROW 12/80".
+private func badge(_ row: String) -> String {
+    let parts = row.split(separator: " ")
+    guard parts.count >= 4, parts[2] == "of" else { return row.uppercased() }
+    return "\(parts[0].uppercased()) \(parts[1])/\(parts[3])"
+}
+
+/// "Row 12 of 80 (WS)" → "WS".
+private func side(_ row: String) -> String? {
+    if row.hasSuffix("(RS)") { return "RS" }
+    if row.hasSuffix("(WS)") { return "WS" }
+    return nil
+}
+
 /// "Row 12 of 80 (WS)" → "12".
 private func shortRow(_ row: String) -> String {
     row.split(separator: " ").first(where: { Int($0) != nil }).map(String.init) ?? "✓"
@@ -53,16 +67,21 @@ struct LockScreenView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(context.state.row).font(.headline).foregroundStyle(accent)
+            HStack(spacing: 8) {
+                Text(badge(context.state.row))
+                    .font(.caption.weight(.bold)).foregroundStyle(.white)
+                    .padding(.horizontal, 9).padding(.vertical, 3)
+                    .background(Capsule().fill(accent))
+                if let side = side(context.state.row) {
+                    Text(side).font(.subheadline.weight(.bold))
+                }
                 Spacer()
-                Text("\(context.attributes.patternName) · \(context.state.part)")
+                Text(context.state.today.isEmpty ? context.attributes.patternName : context.state.today)
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
-            Text(context.state.instruction).font(.body).lineLimit(4)
-            if !context.state.detail.isEmpty {
-                Text(context.state.detail).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            }
+            Text([context.state.part, context.state.detail].filter { !$0.isEmpty }.joined(separator: " · "))
+                .font(.caption.weight(.semibold)).foregroundStyle(.secondary).lineLimit(1)
+            Text(context.state.instruction).font(.headline).lineLimit(5)
             if context.state.fraction >= 0 {
                 ProgressView(value: min(max(context.state.fraction, 0), 1)).tint(accent)
             }

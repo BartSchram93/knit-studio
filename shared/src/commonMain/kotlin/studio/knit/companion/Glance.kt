@@ -2,7 +2,10 @@ package studio.knit.companion
 
 import studio.knit.model.Construction
 import studio.knit.model.Pattern
+import studio.knit.chart.sideOf
+import studio.knit.convert.chartToText
 import studio.knit.stats.dayKey
+import studio.knit.stats.formatDuration
 import studio.knit.stats.logRows
 import studio.knit.stitch.StitchLibrary
 
@@ -25,21 +28,37 @@ data class KnitGlance(
     val fraction: Float?,
     val finished: Boolean,
     val canGoBack: Boolean,
+    /** "Today 12 rows · 1 h 17 min", or "" before any knitting today. */
+    val today: String = "",
 )
 
 /** The glance for the part currently being knitted, or null when there is nothing to knit. */
-fun knitGlance(pattern: Pattern, library: StitchLibrary): KnitGlance? {
+fun knitGlance(pattern: Pattern, library: StitchLibrary, todayKey: String? = null, uk: Boolean = false): KnitGlance? =
+    glanceOf(pattern, library, uk)?.let { g ->
+        val day = todayKey?.let { pattern.progress?.days?.get(it) }
+        if (day == null || (day.rows == 0 && day.seconds < 60)) g
+        else g.copy(today = "Today ${day.rows} ${if (day.rows == 1) "row" else "rows"}" + if (day.seconds >= 60) " · ${formatDuration(day.seconds)}" else "")
+    }
+
+private fun glanceOf(pattern: Pattern, library: StitchLibrary, uk: Boolean): KnitGlance? {
     val sizeIndex = pattern.progress?.sizeIndex ?: 0
     val tracks = tracksOf(pattern, sizeIndex, library)
     val track = tracks.firstOrNull { it.id == pattern.progress?.activeTrackId } ?: tracks.firstOrNull() ?: return null
     val pos = track.position(pattern.progress)
     val name = pattern.displayName
     if (track.repeats) {
+        // A chart worked on its own: the row written out, as the knitter would read it.
         val chart = track.chart!!
+        val index = pos.rowIndex
+        val text = runCatching { chartToText(chart, library, uk).first.getOrNull(index) }.getOrNull()
+        val round = chart.construction == Construction.ROUND
+        val side = if (round) "" else " (${chart.sideOf(index).name})"
+        val number = index + chart.firstRowNumber
         return KnitGlance(
-            pattern.id, name, track.title, "Chart row ${pos.rowIndex + 1} of ${chart.rows}",
-            "Work chart row ${pos.rowIndex + 1}", if (pos.pass > 0) "Repeat ${pos.pass + 1}" else "",
-            null, finished = false, canGoBack = pos.done > 0,
+            pattern.id, name, track.title, "${if (round) "Rnd" else "Row"} $number of ${chart.rows}$side",
+            text?.takeIf { it.isNotBlank() }?.let { it.replaceFirstChar { c -> c.uppercase() } + "." } ?: "Work chart row $number",
+            if (pos.pass > 0) "Chart repeat ${pos.pass + 1}" else "",
+            (index.toFloat() / chart.rows), finished = false, canGoBack = pos.done > 0,
         )
     }
     val round = track.section?.construction == Construction.ROUND

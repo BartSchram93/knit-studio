@@ -11,6 +11,8 @@ struct KnitActivityAttributes: ActivityAttributes {
         var row: String
         var instruction: String
         var detail: String
+        /// "Today 12 rows · 1 h 17 min"
+        var today: String
         /// 0…1, or -1 when the part has no end (a repeating chart).
         var fraction: Double
         var finished: Bool

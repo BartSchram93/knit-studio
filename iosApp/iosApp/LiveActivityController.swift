@@ -9,9 +9,9 @@ final class LiveActivityController: NSObject, LockScreenPresenter {
     private var current: Activity<KnitActivityAttributes>?
 
     func show(patternId: String, patternName: String, part: String, row: String, instruction: String,
-              detail: String, fraction: Double, finished: Bool, canGoBack: Bool) {
+              detail: String, today: String, fraction: Double, finished: Bool, canGoBack: Bool) {
         let state = KnitActivityAttributes.ContentState(
-            part: part, row: row, instruction: instruction, detail: detail,
+            part: part, row: row, instruction: instruction, detail: detail, today: today,
             fraction: fraction, finished: finished, canGoBack: canGoBack)
         let content = ActivityContent(state: state, staleDate: nil)
         let existing = current ?? Activity<KnitActivityAttributes>.activities.first { $0.attributes.patternId == patternId }

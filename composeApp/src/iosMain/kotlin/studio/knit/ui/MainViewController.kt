@@ -26,7 +26,7 @@ fun flushPendingChanges() = container.flushAll()
 interface LockScreenPresenter {
     fun show(
         patternId: String, patternName: String, part: String, row: String, instruction: String,
-        detail: String, fraction: Double, finished: Boolean, canGoBack: Boolean,
+        detail: String, today: String, fraction: Double, finished: Boolean, canGoBack: Boolean,
     )
     fun clear()
 }
@@ -36,7 +36,7 @@ fun setLockScreenPresenter(presenter: LockScreenPresenter) {
     container.lockScreen = object : studio.knit.ui.app.LockScreenKnitting {
         override fun show(glance: studio.knit.companion.KnitGlance) = presenter.show(
             glance.patternId, glance.patternName, glance.part, glance.row, glance.instruction,
-            glance.detail, glance.fraction?.toDouble() ?: -1.0, glance.finished, glance.canGoBack,
+            glance.detail, glance.today, glance.fraction?.toDouble() ?: -1.0, glance.finished, glance.canGoBack,
         )
         override fun clear() = presenter.clear()
     }

@@ -42,3 +42,21 @@ class GlanceTest {
         assertEquals(null, knitGlance(Pattern(id = "x"), lib))
     }
 }
+
+class ChartGlanceTest {
+    @Test fun chartRowsAreWrittenOut() {
+        val chart = studio.knit.model.Chart(
+            id = "c", name = "Chart 1", cols = 4, rows = 2,
+            cells = List(8) { i -> studio.knit.model.Cell(if (i < 4) "k" else "p") },
+        )
+        var p = Pattern(id = "p", name = "Bladeren", charts = listOf(chart))
+        val g = knitGlance(p, lib)!!
+        assertEquals("Row 1 of 2 (RS)", g.row)
+        assertEquals("K4.", g.instruction)
+        p = p.stepKnitting(lib, 1, 1_000)
+        val g2 = knitGlance(p, lib, todayKey = studio.knit.stats.dayKey(1_000))!!
+        assertEquals("Row 2 of 2 (WS)", g2.row)
+        assertTrue(g2.instruction.isNotBlank() && !g2.instruction.startsWith("Work chart"), g2.instruction)
+        assertEquals("Today 1 row", g2.today)
+    }
+}
