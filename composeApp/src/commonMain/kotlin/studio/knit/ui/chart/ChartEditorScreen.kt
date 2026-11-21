@@ -1,6 +1,7 @@
 package studio.knit.ui.chart
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -111,6 +112,8 @@ fun ChartEditorScreen(patternId: String, chartId: String, focusRow: Int, focusCo
     var showIssues by remember { mutableStateOf(false) }
     var showColors by remember { mutableStateOf(false) }
     var cellMenu by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    // Wide charts can be shown as panels of stitches under each other (tap to draw).
+    var panels by androidx.compose.runtime.saveable.rememberSaveable(chartId) { mutableStateOf(chart.cols > 40) }
 
     // First layout, and whenever the chart is resized: fit it to the screen.
     LaunchedEffect(state.viewSize, chart.cols, chart.rows) {
@@ -135,7 +138,8 @@ fun ChartEditorScreen(patternId: String, chartId: String, focusRow: Int, focusCo
             }
             MenuButton(listOf(
                 MenuItem("Chart settings", Icons.Settings) { showSettings = true },
-                MenuItem("Fit to screen", Icons.Fit) { state.fit(chart, density) },
+                MenuItem(if (panels) "Show as one grid" else "Show in panels", Icons.Layers) { panels = !panels },
+                MenuItem("Fit to screen", Icons.Fit, enabled = !panels) { state.fit(chart, density) },
                 MenuItem(if (pattern?.sections?.any { it.chartId == chartId } == true) "Rewrite rows from chart" else "Write rows from chart", Icons.Rows) {
                     val (section, notes) = chartToSection(chart, library, ::newId, settings.ukTerms)
                     editor.update { p ->
@@ -149,7 +153,13 @@ fun ChartEditorScreen(patternId: String, chartId: String, focusRow: Int, focusCo
             ))
         },
     ) {
-        ChartCanvas(shown, library, state, Modifier.weight(1f).fillMaxWidth(), onLongPress = { cell -> haptic(true); cellMenu = cell })
+        if (panels) {
+            Column(Modifier.weight(1f).fillMaxWidth().background(Knit.colors.chartPaper).then(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())).padding(horizontal = 8.dp, vertical = 6.dp)) {
+                ChartPanels(shown, library, Modifier.fillMaxWidth(), cellSize = 28.dp) { r, c -> state.tap(chart, r to c) }
+            }
+        } else {
+            ChartCanvas(shown, library, state, Modifier.weight(1f).fillMaxWidth(), onLongPress = { cell -> haptic(true); cellMenu = cell })
+        }
 
         // Status line: what is under the selection, or a hint.
         val sel = state.selection
@@ -161,6 +171,7 @@ fun ChartEditorScreen(patternId: String, chartId: String, focusRow: Int, focusCo
             sel != null -> "${sel.cols} × ${sel.rows} selected"
             state.tool == ChartTool.SELECT -> "Drag to select an area"
             state.tool == ChartTool.MOVE -> "Drag to move, pinch to zoom"
+            panels -> "${chart.cols} × ${chart.rows}  ·  panels  ·  tap a cell to draw"
             else -> "${chart.cols} × ${chart.rows}  ·  two fingers to pan and zoom"
         }
         Text(hint, style = Knit.type.footnote, color = Knit.colors.secondaryLabel, maxLines = 1, overflow = TextOverflow.Ellipsis,

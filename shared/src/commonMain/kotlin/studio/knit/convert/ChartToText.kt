@@ -98,9 +98,9 @@ fun chartToNodes(chart: Chart, library: StitchLibrary): ChartText {
             }
         }
 
-        val nodes = ArrayList<Node>(before)
+        val nodes = ArrayList<Node>(compressRuns(before))
         if (inside.isNotEmpty()) nodes += Node.Group(inside, Count.ToEnd(SizedInt(afterConsumes)), star = true)
-        nodes += after
+        nodes += compressRuns(after)
         rows += nodes
     }
     return ChartText(rows, notes)
@@ -129,4 +129,33 @@ fun chartToSection(chart: Chart, library: StitchLibrary, newId: () -> String, uk
         generated = true,
     )
     return section to notes
+}
+
+/**
+ * Writes a sequence that repeats as a bracketed group: "k4, k2tog, yo, k4, k2tog, yo, k4,
+ * k2tog, yo" becomes "(k4, k2tog, yo) 3 times". Only exact repeats of 2 or more stitches are
+ * grouped, so nothing changes meaning.
+ */
+internal fun compressRuns(nodes: List<Node>): List<Node> {
+    if (nodes.size < 4) return nodes
+    val out = ArrayList<Node>()
+    var i = 0
+    while (i < nodes.size) {
+        var bestP = 0
+        var bestK = 1
+        for (p in 2..((nodes.size - i) / 2)) {
+            var k = 1
+            while (i + (k + 1) * p <= nodes.size && (0 until p).all { j -> nodes[i + j] == nodes[i + k * p + j] }) k++
+            // Prefer the grouping that covers the most nodes.
+            if (k >= 2 && p * k > bestP * bestK) { bestP = p; bestK = k }
+        }
+        if (bestK >= 2 && nodes.subList(i, i + bestP).none { it is Node.Color }) {
+            out += Node.Group(nodes.subList(i, i + bestP).toList(), Count.Fixed(bestK))
+            i += bestP * bestK
+        } else {
+            out += nodes[i]
+            i++
+        }
+    }
+    return out
 }

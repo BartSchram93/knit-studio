@@ -18,7 +18,7 @@ import studio.knit.stitch.StitchLibrary
  * Coordinates: row 0 is the bottom row (knitted first), column 0 is the left edge as drawn.
  */
 
-const val MAX_CHART_SIZE = 200
+const val MAX_CHART_SIZE = 500
 
 fun blankChart(id: String, cols: Int, rows: Int, name: String = "Chart", construction: Construction = Construction.FLAT): Chart {
     val c = cols.coerceIn(1, MAX_CHART_SIZE)

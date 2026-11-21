@@ -60,3 +60,14 @@ class ChartGlanceTest {
         assertEquals("Today 1 row", g2.today)
     }
 }
+
+class CompressRunsTest {
+    @Test fun repeatsBecomeGroups() {
+        val chart = studio.knit.model.Chart(
+            id = "c", cols = 14, rows = 1,
+            cells = List(14) { c -> studio.knit.model.Cell(listOf("k", "k", "k2tog", "yo")[c % 4].takeIf { c < 12 } ?: "p") },
+        )
+        val text = studio.knit.convert.chartToText(chart, lib).first.single()
+        assertEquals("P2, (yo, k2tog, k2) 3 times", text)
+    }
+}
