@@ -253,3 +253,68 @@ class MarkerTest {
         assertEquals(26, e.endCount)
     }
 }
+
+class PdfWordingTest {
+    private val parser = studio.knit.written.RowParser(lib)
+    private fun produced(row: String, sts: Int) = studio.knit.written.RowEvaluator().evaluate(parser.parse(row), sts)
+
+    @Test fun writtenOutSlipDecreases() {
+        val e = produced("p4, yo, sl1, k2tog, psso, yo, p3", 10)
+        assertTrue(e.issues.isEmpty(), e.issues.toString())
+        assertEquals(10, e.produced)
+        assertEquals(8, produced("k3, sl 1, k1, psso, k4", 9).produced)
+    }
+
+    @Test fun moreCableCrosses() {
+        for (c in listOf("2/1/2 LC", "2/1/2 LPC", "2/1/2 RPC", "1/2 RPC", "1/2 LPC", "2/1 LC")) {
+            assertTrue(parser.parse("p2, $c, p2").errors.isEmpty(), c)
+        }
+        assertEquals(9, produced("p2, 2/1/2 LC, p2", 9).produced)
+    }
+
+    @Test fun closedStarsAreWorkedOnce() {
+        val e = produced("m1L, k2, *k2, k2tog, yo*, k2", 8)
+        assertTrue(e.issues.isEmpty(), e.issues.toString())
+        assertEquals(9, e.produced)
+    }
+
+    @Test fun turnAndCastOnInTheMiddleOfARow() {
+        val e = produced("(K2, P2) 2 times, turn and cast on 4 sts, turn, rib to end.", 12)
+        assertTrue(e.issues.isEmpty(), e.issues.toString())
+        assertEquals(16, e.produced)
+    }
+
+    @Test fun abbreviationNotesInCapitalsAreIgnored() {
+        assertTrue(parser.parse("k1, SSK (GGT), k1").errors.isEmpty())
+    }
+
+    @Test fun edgingAroundEveryChartRowAndSplitHeaders() {
+        var n = 0
+        val text = """
+            Cast on 9 sts.
+            Set-up row (WS): k1, sl1 st wyf, k1, k3, k1, sl1 st wyf, k1.
+            All rows are worked with the edging as follows: RS rows: sl1 st wyf, k1, sl1 st wyf, work chart, sl1 st wyf, k1, sl1 st wyf. WS rows: k1, sl1 st wyf, k1, work chart, k1, sl1 st wyf, k1.
+            Chart 1
+            Row 1 (RS): k1, m1L, k2. 10 sts
+            Row 2 and all WS rows unless otherwise
+            noted: … knit the knits and purl the purls.
+            Row 3 (RS): k4.
+        """.trimIndent()
+        val import = RowExtractor.extract(text)
+        val chart = import.sections.last()
+        val rows = chart.items.filterIsInstance<ImportItem.Instruction>()
+        assertEquals("sl1 st wyf, k1, sl1 st wyf, k1, m1L, k2, sl1 st wyf, k1, sl1 st wyf. 10 sts", rows[0].text)
+        assertEquals("k1, sl1 st wyf, k1, work to last 3 sts, k1, sl1 st wyf, k1.", rows[1].text)
+        val sections = RowExtractor.toSections(import, "s.pdf", lib) { "e${n++}" }
+        val e = evaluateSection(sections.last(), 0, lib)
+        assertTrue(e.issues.none { it.severity != Severity.INFO }, e.issues.toString())
+        assertEquals(10, e.endCount)
+    }
+
+    @Test fun ellipsisRowsAreExplained() {
+        var n = 0
+        val section = RowExtractor.toSections(RowExtractor.extract("Cast on 10 sts.\nRow 1: k3, yo, k2tog…"), "x.pdf") { "z${n++}" }.single()
+        val e = evaluateSection(section, 0, lib)
+        assertTrue(e.issues.single().message.contains("given elsewhere"), e.issues.toString())
+    }
+}

@@ -39,6 +39,8 @@ data class ImportedSection(
     val items: List<ImportItem>,
     /** Markers after the cast-on (stitches before each), from a sentence such as "2 sts, pm, 2 sts, pm, 2 sts". */
     val markers: List<Int> = emptyList(),
+    /** Worked "until" a length or count is reached, so the count at its end is not known. */
+    val openEnded: Boolean = false,
 ) {
     val rowCount: Int get() = items.count { it is ImportItem.Instruction }
     val repeatCount: Int get() = items.count { it is ImportItem.Repeat }
@@ -100,6 +102,12 @@ object RowExtractor {
         """(?:repeat|rep)\s+(?:this|the\s+last|the\s+previous|last)\s+$UNIT\s+(a\s+total\s+of\s+)?$TIMES\s*(more\s+)?(?:times?)?""",
         RegexOption.IGNORE_CASE,
     )
+    /** "Chart 1", "Chart #4-A", "Part 2", "Section B". */
+    private val NUMBERED_PART = Regex("""^(?:chart|part|section|step|panel|tier|motif)\s*#?\s*[\w-]{1,6}$""", RegexOption.IGNORE_CASE)
+    private val SPLIT_HEADER = Regex("""^(?:short\s+)?(?:row|rnd|round)s?\s+\d+""", RegexOption.IGNORE_CASE)
+    /** "RS rows: sl1 st wyf, k1, k3, work chart, k3, sl1 st wyf." — the edge worked around every chart row. */
+    private val FRAME = Regex("""\b(RS|WS)\s+rows?:\s*(.+?),\s*work\s+(?:the\s+)?(?:[a-z-]+\s+)?chart(?:\s+\S+)?,\s*(.+?)\.?$""", RegexOption.IGNORE_CASE)
+    private val WHOLE_ROW_TEXT = Regex("""^(knit the knits and purl the purls|work (?:all )?(?:the )?(?:sts|stitches) as they appear|work in pattern|work as set)\.?$""", RegexOption.IGNORE_CASE)
     private val UNTIL = Regex("""\buntil\b|\bdesired\b|\bmeasures\b""", RegexOption.IGNORE_CASE)
 
     /** Headings that introduce instructions but are not part names. */
@@ -124,6 +132,7 @@ object RowExtractor {
         var pendingCastOn: SizedInt? = null
         var pendingWsFirst = false
         var pendingMarkers: List<Int> = emptyList()
+        val pendingFrames = HashMap<Side, Pair<String, String>>()
         val prose = StringBuilder()
         var row: RowBuilder? = null
 
@@ -138,6 +147,7 @@ object RowExtractor {
             pendingHeading = null
             created.castOn = pendingCastOn; pendingCastOn = null
             created.markers = pendingMarkers; pendingMarkers = emptyList()
+            created.frames.putAll(pendingFrames); pendingFrames.clear()
             if (pendingWsFirst) { created.firstSide = Side.WS; pendingWsFirst = false }
             sections += created
             section = created
@@ -156,6 +166,10 @@ object RowExtractor {
             if (text.isEmpty()) return
             for (sentence in splitSentences(text)) handleSentence(sentence, section, warnings, { section = it; it.also { s -> if (s !in sections) sections += s } },
                 onCastOn = { c -> if (section == null || section!!.items.isNotEmpty()) pendingCastOn = c else section!!.castOn = c },
+                onFrame = { side, pre, post ->
+                    val target = section?.takeIf { it.items.isEmpty() }
+                    if (target != null) target.frames[side] = pre to post else pendingFrames[side] = pre to post
+                },
                 onMarkers = { m -> if (section == null || section!!.items.isNotEmpty()) pendingMarkers = m else section!!.markers = m },
                 onWsFirst = { if (section == null || section!!.items.isNotEmpty()) pendingWsFirst = true else section!!.firstSide = Side.WS })
         }
@@ -213,11 +227,27 @@ object RowExtractor {
         val text = raw.replace('\u000C', '\n').replace(' ', ' ').replace("ﬁ", "fi").replace("ﬂ", "fl").replace('\t', ' ').replace('\r', '\n')
         val lines = text.split('\n').map { it.replace(Regex("\\s+"), " ").trim() }.filter { it.isNotEmpty() }
         val counts = lines.groupingBy { it }.eachCount()
-        return lines.filter { l ->
+        return joinSplitHeaders(lines).filter { l ->
             // A line repeated on many pages is a header or footer, unless it is stitch text.
-            !(counts.getValue(l) >= 3 && parseRowStart(l) == null && !l.contains(":") && !l.contains(",") && !l.first().isLowerCase()) &&
+            !((counts[l] ?: 1) >= 3 && parseRowStart(l) == null && !l.contains(":") && !l.contains(",") && !l.first().isLowerCase()) &&
                 !Regex("""^(page\s+)?\d+(\s*(of|/)\s*\d+)?$""", RegexOption.IGNORE_CASE).matches(l)
         }
+    }
+
+    /** "Row 138 and all WS rows unless otherwise" + "noted: knit the knits…" → one line. */
+    private fun joinSplitHeaders(lines: List<String>): List<String> {
+        val out = ArrayList<String>()
+        var i = 0
+        while (i < lines.size) {
+            val l = lines[i]
+            val next = lines.getOrNull(i + 1)
+            if (next != null && !l.contains(':') && SPLIT_HEADER.containsMatchIn(l) && parseRowStart(l) == null &&
+                next.indexOf(':') in 0..40 && parseRowStart("$l $next") != null
+            ) {
+                out += "$l $next"; i += 2
+            } else { out += l; i++ }
+        }
+        return out
     }
 
     private fun looksLikeHeading(line: String): Boolean =
@@ -225,8 +255,9 @@ object RowExtractor {
 
     /** A short title line without punctuation, such as "Scarf", "Wash and blocking" or "SHAPE CROWN". */
     private fun looksLikeSoftHeading(line: String): Boolean =
-        line.length <= 40 && line.first().isUpperCase() && line.none { it.isDigit() } &&
-            line.last().isLetter() && line.split(' ').size <= 5 && parseRowStart(line) == null &&
+        line.length <= 40 && line.first().isUpperCase() &&
+            (line.none { it.isDigit() } && line.last().isLetter() || NUMBERED_PART.matches(line)) &&
+            line.split(' ').size <= 5 && parseRowStart(line) == null &&
             !Regex("""^(knit|purl|work|rep|repeat|cont|continue|k|p|change|cut|break)\b""", RegexOption.IGNORE_CASE).containsMatchIn(line)
 
     private fun splitSentences(text: String): List<String> =
@@ -250,7 +281,8 @@ object RowExtractor {
 
         fun finish(section: SectionBuilder, warnings: MutableList<String>) {
             if (round) section.round = true
-            var body = text.toString().trim()
+            // "noted: … knit the knits": a lone ellipsis before the text is punctuation, not a stitch.
+            var body = text.toString().trim().replace(Regex("""^(?:…|\.\.\.)\s+"""), "")
             // "as Row 2" refers to the text of another row.
             AS_ROW.matchEntire(body)?.let { m ->
                 val ref = m.groupValues[1].toInt()
@@ -308,8 +340,10 @@ object RowExtractor {
         sentence: String, section: SectionBuilder?, warnings: MutableList<String>,
         @Suppress("UNUSED_PARAMETER") replaceSection: (SectionBuilder) -> SectionBuilder,
         onCastOn: (SizedInt) -> Unit, onWsFirst: () -> Unit, onMarkers: (List<Int>) -> Unit,
+        onFrame: (Side, String, String) -> Unit,
     ) {
         val s = normalizeSizes(sentence)
+        FRAME.find(s)?.let { m -> onFrame(if (m.groupValues[1].equals("RS", true)) Side.RS else Side.WS, m.groupValues[2].trim(), m.groupValues[3].trim()) }
         CAST_ON.find(s)?.let { m -> RowParser.parseSized(m.groupValues[1])?.let(onCastOn) }
         if (FIRST_IS_WS.containsMatchIn(s)) onWsFirst()
         markerSetup(s)?.let(onMarkers)
@@ -338,12 +372,13 @@ object RowExtractor {
     /** "2 sts, place a marker, 2 sts, place a marker, 2 sts" → [2, 4]. */
     private fun markerSetup(s: String): List<Int>? {
         if (!Regex("""marker|\bpm\b""", RegexOption.IGNORE_CASE).containsMatchIn(s)) return null
-        val tokens = Regex("""(\d+)\s*(?:sts?|stitches)\b|place\s+(?:a\s+)?(?:stitch\s+)?marker|\bpm\b""", RegexOption.IGNORE_CASE).findAll(s).toList()
+        // Stitches as "2 sts", "work 13" or "K1"; markers as "place (a) marker" or "pm".
+        val tokens = Regex("""(\d+)\s*(?:sts?|stitches)\b|\b(?:k|p|work)\s*(\d+)\b(?!\s*(?:sts?|stitches))|place\s+(?:a\s+)?(?:stitch\s+)?marker|\bpm\b""", RegexOption.IGNORE_CASE).findAll(s).toList()
         var count = 0
         var numbers = 0
         val markers = ArrayList<Int>()
         for (t in tokens) {
-            val n = t.groupValues[1].toIntOrNull()
+            val n = t.groupValues[1].toIntOrNull() ?: t.groupValues[2].toIntOrNull()
             if (n != null) { count += n; numbers++ } else markers += count
         }
         return markers.takeIf { it.isNotEmpty() && numbers >= 2 && numbers > markers.size - 1 }
@@ -370,7 +405,7 @@ object RowExtractor {
                 warnings += "“${s.trimEnd('.')}” refers to rows that were not found — add this repeat yourself"
                 return null
             }
-            if (UNTIL.containsMatchIn(s)) warnings += "“${s.trimEnd('.')}” depends on a measurement — check the number of repeats"
+            if (UNTIL.containsMatchIn(s)) { warnings += "“${s.trimEnd('.')}” depends on a measurement — check the number of repeats" }
             return n.takeIf { it.values.any { v -> v > 0 } }?.let { ImportItem.Repeat(from, to, it, s) }
         }
         REPEAT_LAST.find(s)?.let { m ->
@@ -385,6 +420,7 @@ object RowExtractor {
             return n.takeIf { it.values.any { v -> v > 0 } }?.let { ImportItem.Repeat(rows, rows, it, s) }
         }
         if (Regex("""^(repeat|rep|work|continue)\b""", RegexOption.IGNORE_CASE).containsMatchIn(s) && UNTIL.containsMatchIn(s)) {
+            section.openEnded = true
             warnings += "“${s.trimEnd('.').take(90)}” — repeat until a length is reached: set the number of repeats yourself"
         }
         return null
@@ -398,6 +434,9 @@ object RowExtractor {
         var castOn: SizedInt? = null
         var description = ""
         var markers: List<Int> = emptyList()
+        var openEnded = false
+        /** Edge stitches worked before and after every row of a chart, per side. */
+        val frames = HashMap<Side, Pair<String, String>>()
         val items = ArrayList<ImportItem>()
         var lastNumber: Int? = null
         private val numberToPosition = HashMap<Int, Int>()
@@ -442,8 +481,17 @@ object RowExtractor {
             // Drop boilerplate, and keep at most a few notes after the last row: what follows is usually finishing prose.
             val kept = items.filterNot { it is ImportItem.Note && BOILERPLATE.containsMatchIn(it.text) }
             val lastWork = kept.indexOfLast { it !is ImportItem.Note }
-            val trimmed = kept.take(lastWork + 1) + kept.drop(lastWork + 1).take(MAX_TRAILING_NOTES)
-            return ImportedSection(title, round, if (round) Side.RS else firstSide, castOn, description.trim(), trimmed, markers)
+            var trimmed = kept.take(lastWork + 1) + kept.drop(lastWork + 1).take(MAX_TRAILING_NOTES)
+            if (frames.isNotEmpty() && !round) {
+                val firstNumber = trimmed.filterIsInstance<ImportItem.Instruction>().firstNotNullOfOrNull { it.number } ?: 1
+                trimmed = trimmed.map { item ->
+                    if (item !is ImportItem.Instruction || item.number == null) return@map item
+                    val side = item.side ?: if ((item.number - firstNumber) % 2 == 0) firstSide else firstSide.flipped()
+                    val (pre, post) = frames[side] ?: return@map item
+                    item.copy(text = framed(item.text, pre, post), note = listOf(item.note, "includes the edge stitches").filter { it.isNotBlank() }.joinToString("; "))
+                }
+            }
+            return ImportedSection(title, round, if (round) Side.RS else firstSide, castOn, description.trim(), trimmed, markers, openEnded)
         }
     }
 
@@ -479,7 +527,8 @@ object RowExtractor {
                 },
             )
             val prev = out.lastOrNull()
-            if (library != null && prev != null && section.castOn == null) {
+            val prevOpen = import.sections.getOrNull(out.size - 1)?.openEnded == true
+            if (library != null && prev != null && section.castOn == null && !prevOpen) {
                 // Every size is followed separately, as the counts differ per size.
                 val ends = (0 until import.sizeCount).map { studio.knit.written.evaluateSection(prev, it, library) }
                 val counts = ends.map { it.endCount }
@@ -496,5 +545,19 @@ object RowExtractor {
             out += section
         }
         return out
+    }
+
+    /** Puts the edge stitches around a chart row: "pre, row, post", keeping a stated count at the end. */
+    private fun framed(text: String, pre: String, post: String): String {
+        val m = Regex("""^(.*?)(?:[.,]?\s*(\(?\d+(?:\s*\([\d,\s]+\))?\s*sts?\.?\)?))?\.?\s*$""", RegexOption.IGNORE_CASE).find(text.trim())
+        var body = m?.groupValues?.get(1)?.trim()?.trimEnd('.', ',') ?: text
+        val tail = m?.groupValues?.get(2).orEmpty()
+        if (WHOLE_ROW_TEXT.matches(body)) {
+            // "Knit the knits and purl the purls" runs up to the edge stitches at the end.
+            val lib = studio.knit.stitch.StitchLibrary()
+            val edge = studio.knit.written.RowEvaluator().evaluate(RowParser(lib).parse(post), null, compact = true).consumed
+            body = if (edge != null && edge > 0) "work to last $edge sts" else "work to end"
+        }
+        return "$pre, $body, $post." + if (tail.isNotEmpty()) " $tail" else ""
     }
 }

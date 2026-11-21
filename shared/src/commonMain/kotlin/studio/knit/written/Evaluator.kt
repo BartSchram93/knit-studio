@@ -100,7 +100,8 @@ class RowEvaluator(private val sizeIndex: Int = 0) {
         if (compact) return RowEval(st.consumed, st.produced, st.list, st.issues, st.repeats)
         // Markers right at the end of the row move across with the last stitch.
         st.ahead?.let { ahead -> ahead.filter { it <= st.consumed }.forEach { st.placed += st.produced }; ahead.clear() }
-        val markersOut = if (st.ahead != null) st.placed.sorted() else null
+        // Without known markers, markers placed in this row are still known for the next one.
+        val markersOut = if (st.ahead != null || st.placed.isNotEmpty()) st.placed.sorted() else null
 
         if (stitchesIn != null && parsed.nodes.isNotEmpty() && st.consumed != stitchesIn && st.issues.none { it.severity == Severity.ERROR }) {
             if (st.consumed < stitchesIn) {
@@ -351,14 +352,20 @@ fun evaluateSection(section: Section, sizeIndex: Int, library: StitchLibrary): S
     var current = start
     // Markers are only known while the stitch count is known (flat rows turn the work around).
     var markers: List<Int>? = if (start != null) section.markers.filter { it in 0..start } else null
+    // Until markers are set (in the section or with "pm"), "to marker" cannot be checked.
+    var markersKnown = section.markers.isNotEmpty()
     val out = ArrayList<ExpandedRow>(seq.size)
     var side = section.firstRowSide
     seq.forEachIndexed { index, p ->
         val rowSide = if (section.construction == Construction.ROUND) Side.RS else side
-        val raw = if (p.parsed.isEmpty) null else evaluator.evaluate(p.parsed, current, markersIn = markers)
+        val raw = if (p.parsed.isEmpty) null else evaluator.evaluate(p.parsed, current, markersIn = markers.takeIf { markersKnown })
         val eval = if (raw != null && section.importedFrom != null && p.parsed.errors.isNotEmpty()) {
             // Imported rows in the designer's own words: follow them, but do not flag them as wrong.
-            raw.copy(issues = listOf(EvalIssue(Severity.INFO, "Not checked — the app does not understand: " + p.parsed.errors.joinToString("; ") { it.fragment })))
+            val fragments = p.parsed.errors.map { it.fragment }
+            val message = if (fragments.any { it.contains('…') || it.contains("...") })
+                "Not checked — part of this row is given elsewhere in the pattern (“…”)"
+            else "Not checked — the app does not understand: " + fragments.joinToString("; ")
+            raw.copy(issues = listOf(EvalIssue(Severity.INFO, message)))
         } else if (p.parsed.isEmpty) {
             RowEval(0, current ?: 0, emptyList(), listOf(EvalIssue(Severity.WARNING, "This row has no instructions yet")))
         } else if (section.importedFrom != null) {
@@ -381,6 +388,7 @@ fun evaluateSection(section: Section, sizeIndex: Int, library: StitchLibrary): S
         if (!p.parsed.isEmpty) {
             current = if (p.parsed.errors.isEmpty()) eval.produced else null
             val total = current
+            if (!eval.markersOut.isNullOrEmpty()) markersKnown = true
             markers = if (total == null) null else eval.markersOut?.let { out ->
                 if (section.construction == Construction.ROUND) out else out.map { total - it }.sorted()
             }
