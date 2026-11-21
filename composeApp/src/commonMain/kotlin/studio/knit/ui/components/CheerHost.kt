@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -49,13 +50,12 @@ import studio.knit.ui.theme.Knit
 @Composable
 fun CheerHost() {
     val app = LocalApp.current
-    val queue = remember { mutableStateListOf<Cheer>() }
-    LaunchedEffect(app) { app.achievements.cheers.collect { queue += it } }
+    val queue by app.achievements.cheers.collectAsState()
     val current = queue.firstOrNull()
     var visible by remember { mutableStateOf(false) }
 
     if (current != null && current.big) {
-        CelebrationOverlay(Celebration(current.title, current.message, current.id, current.emoji)) { queue.remove(current) }
+        CelebrationOverlay(Celebration(current.title, current.message, current.id, current.emoji)) { app.achievements.shown(current) }
         return
     }
     LaunchedEffect(current?.id) {
@@ -64,7 +64,7 @@ fun CheerHost() {
         delay(3200)
         visible = false
         delay(400)
-        queue.remove(current)
+        app.achievements.shown(current)
     }
     Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.TopCenter) {
         AnimatedVisibility(visible && current != null, enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it } + fadeOut()) {

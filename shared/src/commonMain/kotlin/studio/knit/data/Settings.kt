@@ -26,6 +26,8 @@ data class Settings(
     val theme: ThemeMode = ThemeMode.SYSTEM,
     val accent: AccentColor = AccentColor.TERRACOTTA,
     val confetti: ConfettiStyle = ConfettiStyle.CLASSIC,
+    /** Stitches per panel when a wide chart is shown in panels; 0 = fit to the screen. */
+    val panelStitches: Int = 0,
     /** Show levels, badges and goals. */
     val achievements: Boolean = true,
     /** Earned achievements and related bookkeeping, as JSON (see AchievementState). */
@@ -41,7 +43,7 @@ data class Settings(
     val lastBackupAt: Long = 0,
 ) {
     fun toMap(): Map<String, String> = mapOf(
-        "imperial" to imperial.toString(), "ukTerms" to ukTerms.toString(), "theme" to theme.name, "accent" to accent.name, "confetti" to confetti.name,
+        "imperial" to imperial.toString(), "ukTerms" to ukTerms.toString(), "theme" to theme.name, "accent" to accent.name, "confetti" to confetti.name, "panelStitches" to panelStitches.toString(),
         "achievements" to achievements.toString(), "achievementState" to achievementState,
         "paper" to paper.name, "pdfLandscape" to pdfLandscape.toString(), "haptics" to haptics.toString(),
         "keepScreenOn" to keepScreenOn.toString(), "shadeWsRows" to shadeWsRows.toString(), "lockScreenRow" to lockScreenRow.toString(), "lastBackupAt" to lastBackupAt.toString(),
@@ -55,6 +57,7 @@ data class Settings(
                 ukTerms = m["ukTerms"]?.toBooleanStrictOrNull() ?: d.ukTerms,
                 theme = m["theme"]?.let { v -> ThemeMode.entries.firstOrNull { it.name == v } } ?: d.theme,
                 accent = m["accent"]?.let { v -> AccentColor.entries.firstOrNull { it.name == v } } ?: d.accent,
+                panelStitches = m["panelStitches"]?.toIntOrNull()?.coerceIn(0, 60) ?: d.panelStitches,
                 confetti = m["confetti"]?.let { v -> ConfettiStyle.entries.firstOrNull { it.name == v } } ?: d.confetti,
                 achievements = m["achievements"]?.toBooleanStrictOrNull() ?: d.achievements,
                 achievementState = m["achievementState"] ?: d.achievementState,

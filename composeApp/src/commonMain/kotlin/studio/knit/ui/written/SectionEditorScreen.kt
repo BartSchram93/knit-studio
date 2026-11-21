@@ -336,7 +336,7 @@ private fun SectionSummary(
         if (p.sizes.size > 1) {
             Segmented(p.sizes, sizeIndex, onSize, Modifier.fillMaxWidth())
             Spacer(Modifier.height(4.dp))
-            Text("Stitch counts are shown for size ${p.sizes[sizeIndex]}.", style = Knit.type.footnote, color = Knit.colors.secondaryLabel, modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
+            Text("Stitch counts are shown for ${studio.knit.ui.app.sizeLabel(p.sizes[sizeIndex]).replaceFirstChar { it.lowercase() }}.", style = Knit.type.footnote, color = Knit.colors.secondaryLabel, modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
         }
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             BoundField(

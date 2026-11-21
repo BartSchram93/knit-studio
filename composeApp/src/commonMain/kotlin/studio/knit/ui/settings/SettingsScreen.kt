@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import studio.knit.ui.components.pressable
+import androidx.compose.foundation.horizontalScroll
 
 @Composable
 fun SettingsScreen() {
@@ -85,7 +86,16 @@ fun SettingsScreen() {
         item {
             Segmented(ThemeMode.entries.map { it.label }, settings.theme.ordinal, { i -> set { it.copy(theme = ThemeMode.entries[i]) } }, Modifier.padding(horizontal = PagePadding).fillMaxWidth())
             Spacer(Modifier.height(14.dp))
-            AccentPicker(settings.accent) { a -> set { it.copy(accent = a) } }
+            val facts by app.achievements.facts.collectAsState()
+            val rewards = remember(facts) { facts?.let { studio.knit.achieve.Achievements.rewards(it) }.orEmpty() }
+            AccentPicker(settings.accent, rewards) { a -> set { it.copy(accent = a) } }
+            Spacer(Modifier.height(14.dp))
+            ConfettiPicker(settings.confetti, rewards) { c -> set { it.copy(confetti = c) } }
+            Spacer(Modifier.height(14.dp))
+            Group {
+                SwitchRow("Achievements & levels", settings.achievements, { v -> set { it.copy(achievements = v) } },
+                    "Badges, your knitting level and small celebrations. Your progress is kept either way.")
+            }
             Spacer(Modifier.height(14.dp))
             Group {
                 SwitchRow("Haptic feedback", settings.haptics, { v -> set { it.copy(haptics = v) } }, "A light tick when drawing stitches and counting rows")
@@ -213,23 +223,71 @@ fun SettingsScreen() {
 
 /** Round swatches for the app's accent colour. */
 @Composable
-private fun AccentPicker(selected: studio.knit.data.AccentColor, onPick: (studio.knit.data.AccentColor) -> Unit) {
+private fun AccentPicker(selected: studio.knit.data.AccentColor, rewards: List<studio.knit.achieve.Reward>, onPick: (studio.knit.data.AccentColor) -> Unit) {
+    val app = studio.knit.ui.app.LocalApp.current
     val dark = Knit.colors.isDark
+    val unlocked = rewards.filterIsInstance<studio.knit.achieve.Reward.Accent>().mapTo(HashSet()) { it.name }
     Column(Modifier.padding(horizontal = PagePadding).fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp)).background(Knit.colors.surface).padding(14.dp)) {
         Text("Colour", style = Knit.type.body, color = Knit.colors.label)
         Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            for (a in studio.knit.data.AccentColor.entries) {
-                val color = studio.knit.ui.theme.accentOf(a, dark)
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.pressable { onPick(a) }.semantics { contentDescription = "${a.label} colour" + if (a == selected) ", selected" else "" }) {
-                    Box(
-                        Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).background(color)
-                            .then(if (a == selected) Modifier.border(3.dp, Knit.colors.surface, androidx.compose.foundation.shape.CircleShape) else Modifier),
-                        contentAlignment = Alignment.Center,
-                    ) { if (a == selected) KIcon(Icons.Check, Color.White, 20.dp) }
-                    Spacer(Modifier.height(4.dp))
-                    Text(a.label, style = Knit.type.caption, color = if (a == selected) Knit.colors.label else Knit.colors.secondaryLabel)
+        for (row in studio.knit.data.AccentColor.entries.chunked(6)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = if (row.size == 6) Arrangement.SpaceBetween else Arrangement.spacedBy(14.dp)) {
+                for (a in row) {
+                    val locked = a.reward && a.name !in unlocked
+                    val color = studio.knit.ui.theme.accentOf(a, dark)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.pressable {
+                            if (locked) app.message("${a.label} is a reward: ${rewardHint(a.name)}") else onPick(a)
+                        }.semantics { contentDescription = "${a.label} colour" + when { locked -> ", locked"; a == selected -> ", selected"; else -> "" } },
+                    ) {
+                        Box(
+                            Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).background(if (locked) color.copy(alpha = 0.25f) else color)
+                                .then(if (a == selected) Modifier.border(3.dp, Knit.colors.surface, androidx.compose.foundation.shape.CircleShape) else Modifier),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            when {
+                                a == selected -> KIcon(Icons.Check, Color.White, 20.dp)
+                                locked -> Text("🔒", style = Knit.type.caption)
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(a.label, style = Knit.type.caption, color = if (a == selected) Knit.colors.label else Knit.colors.secondaryLabel)
+                    }
                 }
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+    }
+}
+
+/** Which achievement unlocks a reward, e.g. "earn Finisher · Silver". */
+private fun rewardHint(name: String): String {
+    val def = studio.knit.achieve.Achievements.all.firstOrNull { d ->
+        when (val r = d.reward?.second) {
+            is studio.knit.achieve.Reward.Accent -> r.name == name
+            is studio.knit.achieve.Reward.Confetti -> r.name == name
+            null -> false
+        }
+    } ?: return "keep knitting"
+    val tier = def.reward!!.first
+    return if (def.hidden) "find a hidden achievement" else "earn ${def.title}" + if (def.tiers > 1) " · ${studio.knit.ui.app.tierName(tier + 1)}" else ""
+}
+
+@Composable
+private fun ConfettiPicker(selected: studio.knit.data.ConfettiStyle, rewards: List<studio.knit.achieve.Reward>, onPick: (studio.knit.data.ConfettiStyle) -> Unit) {
+    val app = studio.knit.ui.app.LocalApp.current
+    val unlocked = rewards.filterIsInstance<studio.knit.achieve.Reward.Confetti>().mapTo(HashSet()) { it.name }
+    Column(Modifier.padding(horizontal = PagePadding).fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp)).background(Knit.colors.surface).padding(14.dp)) {
+        Text("Confetti", style = Knit.type.body, color = Knit.colors.label)
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (c in studio.knit.data.ConfettiStyle.entries) {
+                val locked = c.reward && c.name !in unlocked
+                studio.knit.ui.components.Chip(
+                    (if (locked) "🔒 " else "") + c.label, c == selected,
+                    { if (locked) app.message("${c.label} is a reward: ${rewardHint(c.name)}") else onPick(c) },
+                )
             }
         }
     }

@@ -164,6 +164,11 @@ fun KnitScreen(patternId: String) {
             next.logRowsAt(now, (next.positions[track.id] ?: 0) - (pr.positions[track.id] ?: 0)).also { after = it }
         }
         val finishedPart = delta > 0 && !track.repeats && before < track.length && before + delta >= track.length
+        // Halfway through a longer part: a small cheer, once on the way up.
+        val half = track.length / 2
+        if (delta > 0 && !track.repeats && track.length >= 20 && before < half && before + delta >= half) {
+            app.achievements.cheer(studio.knit.ui.app.Cheer("💪", "Halfway there!", "${track.title}: $half of ${track.length} ${if (track.section?.construction == Construction.ROUND) "rounds" else "rows"}", big = false))
+        }
         haptic(finishedPart)
         if (finishedPart) {
             // The whole pattern is done when every part with an end is finished.
@@ -225,7 +230,8 @@ fun KnitScreen(patternId: String) {
                     if (wide && !whole) {
                         val focus = current ?: 0
                         val window = (focus - 1).coerceAtLeast(0)..(focus + 3).coerceAtMost(chart.rows - 1)
-                        studio.knit.ui.chart.ChartPanels(chart, library, Modifier.fillMaxWidth(), rows = window, highlightRow = current, doneBelow = current)
+                        studio.knit.ui.chart.ChartPanels(chart, library, Modifier.fillMaxWidth(), rows = window, highlightRow = current, doneBelow = current,
+                            perPanel = settings.panelStitches, onPerPanelChange = { n -> app.scope.launch { app.repo.updateSettings { s -> s.copy(panelStitches = n) } } })
                     } else {
                         val aspect = (chart.cols + 3.2f) / (chart.rows + 1.6f)
                         ChartThumbnail(
@@ -392,7 +398,7 @@ private fun CurrentRowCard(p: Pattern, track: Track, pos: Position, progress: Pr
         }
         if (p.sizes.size > 1) {
             Spacer(Modifier.height(10.dp))
-            Text("Size ${p.sizes.getOrElse(progress.sizeIndex) { p.sizes.first() }}", style = Knit.type.footnote.copy(fontWeight = FontWeight.SemiBold), color = Knit.colors.secondaryLabel)
+            Text(studio.knit.ui.app.sizeLabel(p.sizes.getOrElse(progress.sizeIndex) { p.sizes.first() }), style = Knit.type.footnote.copy(fontWeight = FontWeight.SemiBold), color = Knit.colors.secondaryLabel)
         }
     }
 }

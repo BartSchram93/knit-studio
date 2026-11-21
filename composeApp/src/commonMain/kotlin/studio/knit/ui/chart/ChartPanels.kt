@@ -27,6 +27,7 @@ import studio.knit.chart.rowNumber
 import studio.knit.model.Chart
 import studio.knit.model.Direction
 import studio.knit.stitch.StitchLibrary
+import studio.knit.ui.components.pressable
 import studio.knit.ui.theme.Knit
 import kotlin.math.floor
 
@@ -41,12 +42,16 @@ fun Chart.columnsFor(stitches: IntRange): IntRange =
     if (rsDirection == Direction.RIGHT_TO_LEFT) (cols - stitches.last)..(cols - stitches.first)
     else (stitches.first - 1)..(stitches.last - 1)
 
-/** How many stitches fit in one panel of [width] at a readable cell size. */
-fun stitchesPerPanel(width: Dp, cell: Dp = 26.dp, cols: Int): Int {
-    val fit = ((width.value - 2 * MARGIN_CELLS * cell.value) / cell.value).toInt().coerceAtLeast(5)
+/**
+ * How many stitches go in one panel of [width]: [chosen] when the knitter picked a number,
+ * otherwise as many as fit with cells of at least [minCell].
+ */
+fun stitchesPerPanel(width: Dp, cols: Int, chosen: Int = 0, minCell: Dp = 20.dp): Int {
+    if (chosen > 0) return minOf(chosen, cols)
+    val fit = (width.value / minCell.value - 2 * MARGIN_CELLS).toInt().coerceAtLeast(5)
     if (fit >= cols) return cols
     // Round down to a multiple of 5 so panel borders fall on easy-to-count stitches.
-    return (fit / 5 * 5).coerceAtLeast(5)
+    return if (fit >= 10) fit / 5 * 5 else fit
 }
 
 private const val MARGIN_CELLS = 1.3f
@@ -63,18 +68,23 @@ fun ChartPanels(
     rows: IntRange = 0 until chart.rows,
     highlightRow: Int? = null, doneBelow: Int? = null,
     cellSize: Dp = 26.dp,
+    /** Stitches per panel chosen by the knitter; 0 fits as many as are readable. */
+    perPanel: Int = 0,
+    /** When set, a "stitches per panel" control is shown above the panels. */
+    onPerPanelChange: ((Int) -> Unit)? = null,
     onTap: ((Int, Int) -> Unit)? = null,
 ) {
     if (chart.cells.size != chart.cols * chart.rows || rows.isEmpty()) return
     val style = rememberChartStyle()
     val measurer = rememberTextMeasurer()
     BoxWithConstraints(modifier) {
-        val per = stitchesPerPanel(maxWidth, cellSize, chart.cols)
+        val per = stitchesPerPanel(maxWidth, chart.cols, perPanel)
         // Cells grow to fill the width when a panel holds fewer stitches than would fit.
         val cell = minOf(maxWidth.value / (per + 2 * MARGIN_CELLS), cellSize.value * 1.6f).dp
         val density = LocalDensity.current
         val cellPx = with(density) { cell.toPx() }
         Column {
+            if (onPerPanelChange != null) PanelWidthControl(perPanel, per, chart.cols, onPerPanelChange)
             for (stitches in panelRanges(chart.cols, per)) {
                 val cols = chart.columnsFor(stitches)
                 if (chart.cols > per) {
@@ -128,5 +138,29 @@ fun ChartPanels(
                 }
             }
         }
+    }
+}
+
+/**
+ * "Stitches per panel  −  15  +": steps of 5 from what is shown now (also when on Auto);
+ * tapping the number goes back to Auto.
+ */
+@Composable
+fun PanelWidthControl(chosen: Int, shown: Int, cols: Int, onChange: (Int) -> Unit) {
+    val max = minOf(60, ((cols + 4) / 5) * 5)
+    val up = ((shown / 5) + 1) * 5
+    val down = ((shown - 1) / 5) * 5
+    androidx.compose.foundation.layout.Row(
+        Modifier.fillMaxWidth().padding(bottom = 4.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    ) {
+        Text("Stitches per panel", style = Knit.type.subhead, color = Knit.colors.secondaryLabel, modifier = Modifier.weight(1f))
+        studio.knit.ui.components.IconBtn(studio.knit.ui.components.Icons.Minus, "Fewer stitches per panel", { onChange(down.coerceAtLeast(5)) }, enabled = shown > 5, size = 18.dp)
+        Text(
+            if (chosen == 0) "Auto · $shown" else "$shown", style = Knit.type.headline, color = Knit.colors.label,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.width(72.dp).then(if (chosen != 0) Modifier.pressable { onChange(0) } else Modifier),
+        )
+        studio.knit.ui.components.IconBtn(studio.knit.ui.components.Icons.Plus, "More stitches per panel", { onChange(up.coerceAtMost(max)) }, enabled = shown < cols && up <= max, size = 18.dp)
     }
 }

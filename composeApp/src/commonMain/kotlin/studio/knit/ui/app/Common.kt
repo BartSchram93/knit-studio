@@ -144,3 +144,6 @@ fun PatternRowContent(pattern: Pattern, library: StitchLibrary, now: Long, modif
         KIcon(Icons.ChevronRight, Knit.colors.tertiaryLabel, 16.dp)
     }
 }
+
+/** "Size S" for a size called "S", but just "Size 1" for one already called "Size 1". */
+fun sizeLabel(name: String): String = if (name.trim().startsWith("size", ignoreCase = true)) name.trim() else "Size $name"

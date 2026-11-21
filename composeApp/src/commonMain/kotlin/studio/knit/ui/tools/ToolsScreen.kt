@@ -108,6 +108,8 @@ fun ToolsScreen() {
                 ListRow("Yarn & needle stash", subtitle = "What you own, ready to add to a pattern", leading = { ToolIcon(Icons.Layers) }, chevron = true) { nav.tool("stash") }
                 RowDivider(60.dp)
                 ListRow("Knitting stats", subtitle = "Time knitted, rows per day, streaks", leading = { ToolIcon(Icons.Counter) }, chevron = true) { nav.tool("stats") }
+                RowDivider(66.dp)
+                ListRow("Achievements", subtitle = "Your level, badges and hidden surprises", leading = { ToolIcon(Icons.Sparkle) }, chevron = true) { nav.tool("achievements") }
             }
         }
     }
@@ -122,6 +124,8 @@ fun ToolScreen(tool: String) {
         "needles" -> NeedleTool()
         "stitches" -> StitchLibraryScreen()
         "stats" -> StatsScreen()
+        "achievements" -> AchievementsScreen()
+        "year" -> YearReviewScreen()
         else -> StashScreen()
     }
 }

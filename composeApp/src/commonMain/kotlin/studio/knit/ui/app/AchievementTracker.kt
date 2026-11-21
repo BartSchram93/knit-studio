@@ -49,12 +49,17 @@ class AchievementTracker(
     /** The latest facts, for the home screen, the achievements screen and rewards. */
     val facts: StateFlow<KnitFacts?> = _facts
 
-    private val _cheers = MutableSharedFlow<Cheer>(extraBufferCapacity = 16)
-    val cheers: SharedFlow<Cheer> = _cheers
+    // A queue, not a one-shot event: a cheer raised before any screen shows it is kept.
+    private val _cheers = MutableStateFlow<List<Cheer>>(emptyList())
+    /** Cheers waiting to be shown, oldest first. */
+    val cheers: StateFlow<List<Cheer>> = _cheers
+
+    /** Called once a cheer has been shown. */
+    fun shown(c: Cheer) { _cheers.value = _cheers.value.filter { it.id != c.id } }
 
     private var recordCheeredOn: String? = null
 
-    fun cheer(c: Cheer) { if (settings.value.achievements) _cheers.tryEmit(c) }
+    fun cheer(c: Cheer) { if (settings.value.achievements) _cheers.value = (_cheers.value + c).takeLast(12) }
 
     @OptIn(FlowPreview::class)
     fun start() {

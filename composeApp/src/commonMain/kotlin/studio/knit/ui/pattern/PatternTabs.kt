@@ -354,7 +354,7 @@ private fun YarnEstimate(p: Pattern, library: StitchLibrary) {
             if (i > 0) RowDivider()
             val r = rows[i]
             ListRow(
-                if (size.isEmpty()) "This pattern" else "Size $size",
+                if (size.isEmpty()) "This pattern" else studio.knit.ui.app.sizeLabel(size),
                 subtitle = r?.let { (stitches, _) -> "$stitches stitches  ·  about ${units.length(YarnCalc.cmPerStitch(gauge), 1)} each" } ?: "Stitch count not known for every row",
                 value = r?.second?.let { "≈ ${units.yarn(it.meters)}" } ?: "—",
             )
