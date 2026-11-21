@@ -15,7 +15,7 @@ struct KnitLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: KnitActivityAttributes.self) { context in
             LockScreenView(context: context)
-                .padding(14)
+                .padding(.horizontal, 14).padding(.vertical, 10)
                 .activityBackgroundTint(Color(.systemBackground).opacity(0.92))
                 .activitySystemActionForegroundColor(accent)
         } dynamicIsland: { context in
@@ -62,36 +62,47 @@ private func shortRow(_ row: String) -> String {
     row.split(separator: " ").first(where: { Int($0) != nil }).map(String.init) ?? "✓"
 }
 
+/// The lock screen gives a Live Activity at most about 160 points of height, so everything but
+/// the instruction is kept to one line, and the instruction gets the rest (up to 4 lines,
+/// shrinking a little before it is cut). Tapping the activity opens the app for the full row.
 struct LockScreenView: View {
     let context: ActivityViewContext<KnitActivityAttributes>
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
                 Text(rowBadge(context.state.row))
-                    .font(.caption.weight(.bold)).foregroundStyle(.white)
-                    .padding(.horizontal, 9).padding(.vertical, 3)
+                    .font(.caption2.weight(.bold)).foregroundStyle(.white)
+                    .padding(.horizontal, 7).padding(.vertical, 2)
                     .background(Capsule().fill(accent))
                 if let side = rowSide(context.state.row) {
-                    Text(side).font(.subheadline.weight(.bold))
+                    Text(side).font(.caption.weight(.bold))
                 }
-                Spacer()
-                Text(context.state.today.isEmpty ? context.attributes.patternName : context.state.today)
+                Text([context.state.part, context.state.detail].filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Spacer(minLength: 4)
+                if !context.state.today.isEmpty {
+                    Text(context.state.today.replacingOccurrences(of: "Today ", with: ""))
+                        .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                }
             }
-            Text([context.state.part, context.state.detail].filter { !$0.isEmpty }.joined(separator: " · "))
-                .font(.caption.weight(.semibold)).foregroundStyle(.secondary).lineLimit(1)
-            Text(context.state.instruction).font(.headline).lineLimit(5)
+            Text(context.state.instruction)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(4)
+                .minimumScaleFactor(0.75)
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(1)
             if context.state.fraction >= 0 {
-                ProgressView(value: min(max(context.state.fraction, 0), 1)).tint(accent)
+                ProgressView(value: min(max(context.state.fraction, 0), 1)).tint(accent).scaleEffect(x: 1, y: 0.6, anchor: .center)
             }
-            StepButtons(context: context)
+            StepButtons(context: context, compact: true)
         }
     }
 }
 
 struct StepButtons: View {
     let context: ActivityViewContext<KnitActivityAttributes>
+    var compact: Bool = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -99,6 +110,7 @@ struct StepButtons: View {
                 Label("Back", systemImage: "chevron.left").frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
+            .tint(accent)
             .disabled(!context.state.canGoBack)
 
             Button(intent: StepKnittingIntent(patternId: context.attributes.patternId, delta: 1)) {
@@ -109,5 +121,6 @@ struct StepButtons: View {
             .disabled(context.state.finished)
         }
         .font(.subheadline.weight(.semibold))
+        .controlSize(compact ? .small : .regular)
     }
 }
