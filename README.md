@@ -25,7 +25,14 @@ One Kotlin Multiplatform codebase builds both apps.
   broken cables, size lists of the wrong length and rows that disagree with their chart — and
   takes you to the exact row or cell.
 - **Knitting mode**: one big button per row, the chart row highlighted, repeat tracking, extra
-  counters, notes, and your place remembered.
+  counters, notes, and your place remembered. The current row, with Back / Next, is shown on the
+  lock screen (Android notification, iPhone Live Activity on iOS 17+).
+- **PDF patterns**: keep a bought pattern's PDF in the app, read it with a row counter, and
+  **read its rows**: a rule-based reader (no AI, nothing leaves the phone) finds "Row 1 (RS): …",
+  rounds, repeats, parts and cast-on counts, shows them for checking and adds them as written rows.
+- **Markers**: "knit to marker", "sm", "pm", "rm" and "k to 2 sts before marker" are followed from
+  row to row and checked.
+- **Knitting stats**: time and rows per day, per project and overall.
 - **Tools**: gauge from a swatch and comparison with the pattern, cast-on for a stitch multiple,
   yarn estimates, needle size table, a stitch library you can extend, a yarn and needle stash.
 - **PDF export** with vector charts, stitch key, abbreviations and materials, on A4 or US Letter.

@@ -49,6 +49,10 @@ class RowPrinter(private val uk: Boolean = false) {
                 val verb = when (def.id) { "k" -> "knit"; "p" -> "purl"; else -> abbr }
                 if (leave.values.all { it == 0 }) "$verb to end" else "$verb to last ${sts(leave)}"
             }
+            is Count.ToMarker -> {
+                val verb = when (def.id) { "k" -> "knit"; "p" -> "purl"; else -> abbr }
+                if (count.before.values.all { it == 0 }) "$verb to marker" else "$verb to ${sts(count.before)} before marker"
+            }
             is Count.Fixed -> {
                 val n = count.n
                 val one = !n.isSized && n.values[0] == 1
@@ -71,6 +75,7 @@ class RowPrinter(private val uk: Boolean = false) {
         val body = seq(g.body)
         return if (g.star) {
             when (val t = g.times) {
+                is Count.ToMarker -> "*$body; rep from * to marker"
                 is Count.ToEnd ->
                     if (t.leaving.values.all { it == 0 }) "*$body; rep from * to end"
                     else "*$body; rep from * to last ${sts(t.leaving)}"
@@ -85,6 +90,7 @@ class RowPrinter(private val uk: Boolean = false) {
             }
         } else {
             when (val t = g.times) {
+                is Count.ToMarker -> "($body) to marker"
                 is Count.ToEnd ->
                     if (t.leaving.values.all { it == 0 }) "($body) to end" else "($body) to last ${sts(t.leaving)}"
                 is Count.Fixed -> when {

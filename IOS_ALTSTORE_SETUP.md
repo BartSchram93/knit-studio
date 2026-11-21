@@ -19,7 +19,9 @@ and a **Windows 11** PC. No paid Apple Developer membership, no App Store.
   them automatically whenever it can reach AltServer — your PC is on, AltServer is running, and
   the phone is on the same Wi-Fi. Refreshing never touches your patterns.
 - A free Apple ID allows **3 active sideloaded apps** at a time — and AltStore itself is one of
-  them — plus **10 App IDs per 7 days**. Knit Studio needs one app slot and one App ID
+  them — plus **10 App IDs per 7 days**. Knit Studio needs one app slot and **two App IDs**: one
+  for the app and one for its lock-screen extension (the row you are knitting, shown on the lock
+  screen). Updates and refreshes reuse them
   ([App IDs](https://faq.altstore.io/altstore-classic/app-ids)).
 
 ## Before you start
@@ -195,6 +197,16 @@ the same app because the bundle identifier (`studio.knit.app`) matches. If it of
 *install* rather than *update* Knit Studio, make a backup first; the install then replaces the
 existing app in the same way as a manual update.
 
+**The first update that includes the lock-screen row:** this
+version adds a small extension, so AltStore registers one extra App ID for it during the update.
+If AltStore reports the App ID limit (error 1009/3013), wait until an older App ID expires
+(*My Apps › View App IDs*) and update then. Your data is unaffected either way.
+
+**The row on the lock screen:** open a pattern in Knit mode; the current row with **Back** and
+**Next row** appears on the lock screen (and in the Dynamic Island) on iOS 17 or later. Turn it
+off in *Settings › Current row on the lock screen*. If nothing appears, check
+*iPhone Settings › Knit Studio › Live Activities*.
+
 ### Updating manually (without the source)
 
 Use the same steps as in step 5, with the newer IPA from step 4: AltStore › *My Apps* › **+** ›
@@ -269,13 +281,16 @@ Still stuck? Note the error code and message and look it up on the
 |---|---|---|
 | iOS code compiles and links into an app for iPhone (arm64) | GitHub Actions, macOS, Xcode | automated |
 | Shared tests pass on the iOS simulator, including the test that the database lives in the app's preserved data folder and survives reopening | GitHub Actions, iOS simulator | automated |
-| IPA structure: `Payload/KnitStudio.app` at the root, bundle ID `studio.knit.app`, arm64 executable, version and build number, ASCII app name, no app extensions, no provisioning profile, no paid-only entitlements | `scripts/build-ios-ipa.sh` on every build; the build fails if any check fails | automated |
+| IPA structure: `Payload/KnitStudio.app` at the root, bundle ID `studio.knit.app`, arm64 executable, version and build number, ASCII app name, exactly one extension (the lock-screen Live Activity, `studio.knit.app.widgets`, same version), no provisioning profile, no paid-only entitlements | `scripts/build-ios-ipa.sh` on every build; the build fails if any check fails | automated |
 | Bundle identifier cannot change by accident | The build refuses to run if `Config.xcconfig` differs from `studio.knit.app` | automated |
 | Android APKs still build and tests pass | GitHub Actions | automated |
 | AltStore installs, signs and refreshes the IPA on an iPhone | Done by the owner on a real iPhone (Knit Studio is in daily use) | **works** |
 | Updating through the AltStore source | The CI job checks that the source and the IPA download are reachable; the update on the phone has not been tried yet | **not tested on a device** |
 | An update over an installed version keeps the data | Reasoned from how iOS and AltStore handle identical bundle IDs, plus the storage test above | **not tested on a device** |
 | iOS share sheet, Files picker and photo picker | — | **not tested on a device** |
+| Reading rows from a PDF with PDFKit | Unit test on the iOS simulator (text read from a generated PDF and its rows found) | automated |
+| Lock-screen Live Activity and its Back / Next buttons | Compiles and is packaged by CI; the IPA check confirms the extension. Showing it on a lock screen and the buttons cannot be tested in CI | **not tested on a device** |
+| AltStore installing the app *with* the extension | — | **not tested on a device** |
 
 Make a backup before the first update through the source (step 9).
 

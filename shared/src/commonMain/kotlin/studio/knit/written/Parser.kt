@@ -23,6 +23,9 @@ sealed interface Count {
 
     /** As many as fit until [leaving] stitches remain on the left needle ("to last 2 sts"). */
     data class ToEnd(val leaving: SizedInt = SizedInt(0)) : Count
+
+    /** Up to the next marker, or [before] stitches before it ("k to 2 sts before marker"). */
+    data class ToMarker(val before: SizedInt = SizedInt(0)) : Count
 }
 
 sealed interface Node {
@@ -54,8 +57,8 @@ data class ParsedRow(
 }
 
 fun Node.isOpenEnded(): Boolean = when (this) {
-    is Node.Stitch -> count is Count.ToEnd
-    is Node.Group -> times is Count.ToEnd || body.any { it.isOpenEnded() }
+    is Node.Stitch -> count is Count.ToEnd || count is Count.ToMarker
+    is Node.Group -> times is Count.ToEnd || times is Count.ToMarker || body.any { it.isOpenEnded() }
     else -> false
 }
 
@@ -82,12 +85,17 @@ class RowParser(private val library: StitchLibrary) {
         fun skipSpace() { while (!atEnd && s[i].isWhitespace()) i++ }
     }
 
-    private fun normalize(s: String): String =
-        s.lowercase()
+    private fun normalize(s: String): String {
+        // Abbreviation notes in capitals after a stitch, such as "SSK (GGT)", are not stitches.
+        var t = s.replace(Regex("""\s*\(\s*[A-Z]{2,5}\s*\)"""), "")
+        t = t.lowercase()
             .replace('–', '-').replace('—', '-').replace('×', 'x')
             .replace('{', '(').replace('}', ')')
             .replace(Regex("\\s+"), " ")
             .trim()
+        for ((regex, replacement) in PHRASES) t = t.replace(regex, replacement)
+        return t
+    }
 
     /** Removes a leading `Row 3 (RS):` / `Rnd 2:` / `Round 4 -` label if the user typed one. */
     private fun stripLabel(s: String): String =
@@ -125,9 +133,11 @@ class RowParser(private val library: StitchLibrary) {
                 }
                 c == '*' -> {
                     while (!p.atEnd && p.peek() == '*') p.i++
-                    val body = parseStarBody(p, closing, errors)
+                    val (body, closed) = parseStarBody(p, closing, errors)
                     val times = parseRepFrom(p)
+                    // "*k2, p2*" with no "rep" after it marks stitches worked as written (once).
                     if (body.isEmpty()) errors += ParseError("Nothing to repeat after “*”", "*")
+                    else if (closed && times == null) out += Node.Group(body, Count.Fixed(1), star = false)
                     else out += Node.Group(body, times ?: Count.ToEnd(), star = true)
                 }
                 else -> {
@@ -150,8 +160,9 @@ class RowParser(private val library: StitchLibrary) {
     }
 
     /** Body of a star repeat: everything up to `rep from *`, the closing bracket or the end. */
-    private fun parseStarBody(p: Cursor, closing: Char?, errors: MutableList<ParseError>): List<Node> {
+    private fun parseStarBody(p: Cursor, closing: Char?, errors: MutableList<ParseError>): Pair<List<Node>, Boolean> {
         val out = ArrayList<Node>()
+        var closed = false
         while (true) {
             while (!p.atEnd && (p.peek().isWhitespace() || p.peek() == ',' || p.peek() == ';' || p.peek() == '.')) p.i++
             if (p.atEnd) break
@@ -167,11 +178,17 @@ class RowParser(private val library: StitchLibrary) {
                     val times = parseMultiplier(p)
                     if (body.isNotEmpty()) out += Node.Group(body, times ?: Count.Fixed(1))
                 }
-                ')', ']', '*' -> { errors += ParseError("Unexpected “$c” inside a repeat", c.toString()); p.i++ }
+                '*' -> {
+                    // A closing star: "*k2, p2*".
+                    while (!p.atEnd && p.peek() == '*') p.i++
+                    closed = true
+                    break
+                }
+                ')', ']' -> { errors += ParseError("Unexpected “$c” inside a repeat", c.toString()); p.i++ }
                 else -> parseChunk(p, out, errors)
             }
         }
-        return out
+        return out to closed
     }
 
     /** `rep from * to end`, `repeat from * to last 3 sts`, `rep from * 3 more times`, … */
@@ -189,6 +206,17 @@ class RowParser(private val library: StitchLibrary) {
      */
     private fun parseMultiplier(p: Cursor, afterRep: Boolean = false): Count? {
         p.skipSpace()
+        // Designers often write "(k1, p1) repeat to end" / "(…) rep 3 times": the word
+        // "repeat" belongs to the multiplier that follows it.
+        if (!afterRep) {
+            val lead = REPEAT_WORD.find(p.rest())
+            if (lead != null && lead.range.first == 0) {
+                val saved = p.i
+                p.i += lead.range.last + 1
+                parseMultiplier(p, afterRep = false)?.let { return it }
+                p.i = saved
+            }
+        }
         val rest = p.rest()
         for ((regex, make) in MULTIPLIERS) {
             val m = regex.find(rest) ?: continue
@@ -249,6 +277,16 @@ class RowParser(private val library: StitchLibrary) {
 
     private fun parseStitch(chunkIn: String): Node? {
         var chunk = chunkIn
+        // Named markers ("slip M2", "place marker M1") and "m1r before the marker".
+        NAMED_MARKER.matchEntire(chunk)?.let { m ->
+            val id = when (m.groupValues[1]) { "slip", "sl", "sm" -> "sm"; "remove", "rm" -> "rm"; else -> "pm" }
+            return library[id]?.let { Node.Stitch(it) }
+        }
+        if (!Regex("""\b(?:to|until)\b""").containsMatchIn(chunk)) chunk = chunk.replace(AROUND_MARKER, "")
+        // "Bind off all sts knitwise, loosely" → bind off to end.
+        BIND_OFF_ALL.matchEntire(chunk)?.let { return library["bo"]?.let { Node.Stitch(it, Count.ToEnd()) } }
+        // "work the stitches as they appear", "knit the knits and purl the purls" → work as set.
+        AS_THEY_APPEAR.matchEntire(chunk)?.let { m -> chunk = "work " + m.groupValues[1].trim().ifEmpty { "to end" } }
         // k2tbl / p3tbl → ktbl ×2
         TBL.matchEntire(chunk)?.let { m ->
             val def = library[if (m.groupValues[1] == "k") "ktbl" else "ptbl"] ?: return null
@@ -256,12 +294,13 @@ class RowParser(private val library: StitchLibrary) {
         }
         // sl2 / slip 2 → sl ×2 (plain "sl1" is covered by aliases)
         SLIP_N.matchEntire(chunk)?.let { m ->
-            val def = library[if (m.groupValues[2].contains("wyif")) "slwyif" else "sl"] ?: return null
+            val def = library[if (m.groupValues[2].contains("wyif") || m.groupValues[2].contains("wyf")) "slwyif" else "sl"] ?: return null
             return Node.Stitch(def, Count.Fixed(m.groupValues[1].toInt()))
         }
         // "work 3 sts in pattern" style text is not interpretable.
         chunk = chunk.removeSuffix(" sts").removeSuffix(" st").removeSuffix(" stitches").trim()
 
+        if (chunk in WHOLE_ROW_WORK) return library["work"]?.let { Node.Stitch(it, Count.ToEnd()) }
         if (chunk == "knit" || chunk == "purl") {
             // A bare "Knit." means the whole row.
             return library[chunk.substring(0, 1)]?.let { Node.Stitch(it, Count.ToEnd()) }
@@ -289,6 +328,9 @@ class RowParser(private val library: StitchLibrary) {
         if (rest.isEmpty()) return Count.Fixed(1)
         parseSized(rest)?.let { return Count.Fixed(it) }
         TO_END.matchEntire(rest)?.let { return Count.ToEnd() }
+        TO_MARKER.matchEntire(rest)?.let { m -> return if (m.groupValues[1].isEmpty()) Count.ToMarker() else parseSized(m.groupValues[1])?.let { Count.ToMarker(it) } }
+        TO_LAST_ONE.matchEntire(rest)?.let { return Count.ToEnd(SizedInt(1)) }
+        UNTIL_REMAIN.matchEntire(rest)?.let { m -> return parseSized(m.groupValues[1])?.let { Count.ToEnd(it) } }
         TO_LAST.matchEntire(rest)?.let { m -> return parseSized(m.groupValues[1])?.let { Count.ToEnd(it) } }
         TIMES.matchEntire(rest)?.let { m -> return Count.Fixed(m.groupValues[1].toInt()) }
         return when (rest) {
@@ -306,12 +348,35 @@ class RowParser(private val library: StitchLibrary) {
             RegexOption.IGNORE_CASE,
         )
         private val SIZE_LIST = Regex("\\s*\\d+(\\s*,\\s*\\d+)*\\s*")
+        private val REPEAT_WORD = Regex("^(?:rep|repeat)\\s+")
         private val REP_FROM = Regex("(?:and\\s+)?(?:rep|repeat)\\s+(?:from\\s+)?\\*+")
-        private val COLOR = Regex("^(with|using|in)\\s+(mc|cc\\d?|[a-h])\\b[\\s:,]*")
+        private val COLOR = Regex("^(with|using|in)\\s+(?:yarn\\s+|colou?r\\s+)?(mc|cc\\d?|[a-h])\\b[\\s:,]*")
         private val TBL = Regex("^([kp])\\s*(\\d+)\\s*tbl$")
-        private val SLIP_N = Regex("^(?:sl|slip)\\s*(\\d+)((?:\\s*(?:wyib|wyif|pwise|purlwise))*)$")
+        private val SLIP_N = Regex("^(?:sl|slip|s)\\s*(\\d+)(?:\\s*sts?)?((?:\\s*(?:wyib|wyif|wyb|wyf|pwise|purlwise|kwise|knitwise))*)$")
         private val TO_END = Regex("(?:to|until)\\s+(?:the\\s+)?end(?:\\s+of\\s+(?:the\\s+)?(?:row|rnd|round))?|across|around|all")
+        /** "to the last stitch (on the needle)": one stitch left. */
+        private val TO_LAST_ONE = Regex("(?:to|until)\\s+(?:the\\s+)?last\\s+(?:st|stitch)(?:\\s+on\\s+the\\s+(?:left[- ]hand\\s+)?needle)?")
         private val TO_LAST = Regex("(?:to|until)\\s+(?:the\\s+)?last\\s+($SIZED)\\s*(?:sts?|stitches)?")
+        private val BIND_OFF_ALL = Regex("^(?:bind|cast)\\s+off(?:\\s+all(?:\\s+(?:rem(?:aining)?\\s+)?(?:sts|stitches))?)?(?:,?\\s+(?:knitwise|purlwise|loosely|in\\s+patt(?:ern)?|in\\s+rib|as\\s+set))*$")
+        /** Common ways of writing a stitch in several words, rewritten before parsing. */
+        private val PHRASES: List<Pair<Regex, String>> = listOf(
+            // Double and single slip decreases written out.
+            Regex("""\b(?:sl|slip|s)\s*1(?:\s*(?:st|kwise|knitwise|k-wise))?\s*,?\s*k2tog\s*,?\s*(?:psso|pass slipped st(?:itch)? over)\b""") to "sk2p",
+            Regex("""\b(?:sl|slip|s)\s*1(?:\s*(?:st|kwise|knitwise|k-wise))?\s*,?\s*k1\s*,?\s*(?:psso|pass slipped st(?:itch)? over)\b""") to "skpo",
+            // "turn and cast on 44 sts, turn": the cast-on is what changes the count.
+            Regex("""\bturn,?\s+(?:and\s+)?(?:cast on|co)\s+(\d+)\s*(?:sts?|stitches)?,?\s*turn\b""") to "cast on $1 sts",
+        )
+
+        /** "to marker", "to next m", "to M2", "to 2 sts before marker". */
+        private val TO_MARKER = Regex("(?:to|until)\\s+(?:($SIZED)\\s*(?:sts?|stitch(?:es)?)\\s+before\\s+)?(?:the\\s+)?(?:next\\s+)?(?:marker|mk|mrk|m(?:\\d+)?|pm)")
+        /** Markers with a name: "slip M2", "place marker M1", "pm M3" (plain "slip marker" is an alias). */
+        private val NAMED_MARKER = Regex("^(slip|sl|sm|remove|rm|place|pm)\\s+(?:a\\s+)?(?:(?:stitch\\s+)?marker\\s+)?m\\d+$")
+        private val AROUND_MARKER = Regex("\\s+(?:before|after)\\s+(?:the\\s+)?(?:next\\s+)?(?:marker|m\\d*)$")
+        /** "until 3 sts remain (on the left needle)": that many stitches left. */
+        private val UNTIL_REMAIN = Regex("(?:until|till)\\s+($SIZED)\\s*(?:sts?|stitch(?:es)?)\\s+remains?(?:\\s+(?:unworked|on\\s+(?:the\\s+)?(?:left[- ]hand\\s+|lh\\s+)?needle))?")
+        private val AS_THEY_APPEAR = Regex("^(?:(?:work|knit\\s+and\\s+purl)\\s+(?:all\\s+)?(?:the\\s+)?(?:sts?|stitches)\\s+as\\s+they\\s+(?:appear|present(?:\\s+themselves)?)|knit\\s+the\\s+knits\\s+and\\s+purl\\s+the\\s+purls)(.*)$")
+        /** A bare "rib" or "work in pattern" means the whole row. */
+        private val WHOLE_ROW_WORK = setOf("rib", "work in patt", "work in pattern", "work in rib", "work as set", "patt", "cont in patt", "work even")
         private val TIMES = Regex("(?:x\\s*)?(\\d+)(?:\\s*(?:times|x))?")
 
         /** Parses `10` or `10 (12, 14)`. */
@@ -334,6 +399,7 @@ class RowParser(private val library: StitchLibrary) {
             Count.Fixed(if (afterRep) SizedInt(n.values.map { it + 1 }) else n)
 
         private val MULTIPLIERS: List<Pair<Regex, (MatchResult, Boolean) -> Count?>> = listOf(
+            Regex("^(?:to|until)\\s+(?:the\\s+)?last\\s+(?:st|stitch)\\b(?:\\s+on\\s+the\\s+(?:left[- ]hand\\s+)?needle)?") to { _, _ -> Count.ToEnd(SizedInt(1)) },
             Regex("^(?:to|until)\\s+(?:the\\s+)?last\\s+($SIZED)\\s*(?:sts?|stitches)?") to { m, _ -> sized(m.groupValues[1])?.let { Count.ToEnd(it) } },
             Regex("^(?:to|until)\\s+(?:the\\s+)?end(?:\\s+of\\s+(?:the\\s+)?(?:row|rnd|round))?") to { _, _ -> Count.ToEnd() },
             Regex("^(?:across|around)\\b") to { _, _ -> Count.ToEnd() },

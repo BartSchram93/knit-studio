@@ -12,7 +12,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import studio.knit.companion.stepKnitting
 import kotlinx.coroutines.launch
 import studio.knit.data.KnitRepository
 import studio.knit.data.Settings
@@ -48,6 +50,38 @@ class AppContainer(
     fun release(id: String) { editors.remove(id)?.flush() }
 
     fun flushAll() { editors.values.forEach { it.flush() } }
+
+    /** Writes every pending change and returns once it is stored. */
+    suspend fun flushAllAndWait() { editors.values.toList().forEach { it.flushAndWait() } }
+
+    /** Shows the row being knitted outside the app (Android notification, iOS Live Activity). */
+    var lockScreen: LockScreenKnitting = LockScreenKnitting.None
+
+    /**
+     * Back / Next pressed on the lock screen. Works whether or not Knit mode is still on screen:
+     * the change goes through the pattern's editor and is saved straight away.
+     */
+    fun stepFromLockScreen(patternId: String, delta: Int, onDone: () -> Unit = {}) {
+        val editor = editor(patternId)
+        scope.launch {
+            editor.loaded.first { it }
+            editor.update { it.stepKnitting(library.value, delta, studio.knit.util.nowMillis()) }
+            editor.flushAndWait()
+            editor.current?.let { p -> studio.knit.companion.knitGlance(p, library.value, studio.knit.stats.dayKey(studio.knit.util.nowMillis()), settings.value.ukTerms)?.let { lockScreen.show(it) } }
+            onDone()
+        }
+    }
+}
+
+/** The platform's way of showing the current row on the lock screen. */
+interface LockScreenKnitting {
+    fun show(glance: studio.knit.companion.KnitGlance)
+    fun clear()
+
+    object None : LockScreenKnitting {
+        override fun show(glance: studio.knit.companion.KnitGlance) = Unit
+        override fun clear() = Unit
+    }
 }
 
 val LocalApp = staticCompositionLocalOf<AppContainer> { error("AppContainer not provided") }

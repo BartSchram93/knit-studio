@@ -127,10 +127,13 @@ fun PatternRowContent(pattern: Pattern, library: StitchLibrary, now: Long, modif
             }
             val meta = buildList {
                 add(pattern.category.label)
+                if (pattern.files.isNotEmpty()) add("PDF")
                 if (pattern.archived) add("Archived") else if (pattern.draft && pattern.progress == null) add("Draft")
                 add(formatDate(pattern.updatedAt, now))
             }.joinToString("  ·  ")
-            Text(status ?: meta, style = Knit.type.footnote, color = Knit.colors.secondaryLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val knitted = remember(pattern.progress?.days) { pattern.progress?.days?.values?.sumOf { it.seconds } ?: 0L }
+            val line = listOfNotNull(status ?: meta, knitted.takeIf { it >= 60 }?.let { studio.knit.stats.formatDuration(it) }).joinToString("  ·  ")
+            Text(line, style = Knit.type.footnote, color = Knit.colors.secondaryLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (fraction != null && pattern.progress?.finishedAt == null) {
                 Spacer(Modifier.height(6.dp))
                 ProgressBar(fraction)

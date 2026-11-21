@@ -183,7 +183,16 @@ fun LazyListScope.rowsTab(p: Pattern, editor: PatternEditor, library: StitchLibr
     if (p.sections.isEmpty()) {
         item {
             EmptyState(Icons.Rows, "No written rows yet", "Type instructions such as “K2, *p2, k2; rep from * to end” and the stitch counts are checked as you write.", Modifier.padding(top = 16.dp)) {
-                PrimaryButton("Add section", { nav.openSection(p.id, addSection().id) }, icon = Icons.Plus)
+                val pdf = p.files.firstOrNull { it.mime == "application/pdf" }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (pdf != null) {
+                        PrimaryButton("Read rows from PDF", { nav.openImportRows(p.id, pdf.id) }, icon = Icons.Document)
+                        Spacer(Modifier.height(10.dp))
+                        SoftButton("Add section", { nav.openSection(p.id, addSection().id) }, icon = Icons.Plus)
+                    } else {
+                        PrimaryButton("Add section", { nav.openSection(p.id, addSection().id) }, icon = Icons.Plus)
+                    }
+                }
             }
         }
         return
@@ -193,6 +202,9 @@ fun LazyListScope.rowsTab(p: Pattern, editor: PatternEditor, library: StitchLibr
     }
     item {
         SoftButton("Add section", { nav.openSection(p.id, addSection().id) }, Modifier.padding(horizontal = PagePadding).padding(top = 4.dp).fillMaxWidth(), icon = Icons.Plus)
+        p.files.firstOrNull { it.mime == "application/pdf" }?.let { pdf ->
+            SoftButton("Read rows from PDF", { nav.openImportRows(p.id, pdf.id) }, Modifier.padding(horizontal = PagePadding).padding(top = 8.dp).fillMaxWidth(), icon = Icons.Document)
+        }
         SectionFooter("Use a section for each part of the piece — ribbing, body, sleeves, crown.")
     }
 }

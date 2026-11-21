@@ -20,6 +20,12 @@ interface PlatformActions {
 
     /** Lets the user choose a photo; delivered as JPEG no larger than 1600 px on its long side. */
     fun pickImage(onResult: (ByteArray?) -> Unit)
+
+    /**
+     * The text of a PDF in reading order: "" when the PDF has no text (a scan), null when it
+     * cannot be read at all. Slow for big files; call it off the main thread.
+     */
+    suspend fun pdfText(bytes: ByteArray): String?
 }
 
 @Composable
@@ -37,3 +43,10 @@ expect fun decodeImage(bytes: ByteArray): androidx.compose.ui.graphics.ImageBitm
 /** Version and build number of the installed app, e.g. "1.0.0 (42)". */
 @Composable
 expect fun appVersion(): String
+
+/**
+ * Shows a PDF document with the platform's own renderer: scrolling through the pages and
+ * pinch-to-zoom. iOS uses PDFKit, Android its built-in PdfRenderer.
+ */
+@Composable
+expect fun PdfView(bytes: ByteArray, modifier: androidx.compose.ui.Modifier = androidx.compose.ui.Modifier)

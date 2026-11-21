@@ -24,7 +24,13 @@ object DesktopPlatform : PlatformActions {
     override fun saveFile(name: String, mime: String, bytes: ByteArray) = write(name, bytes)
     override fun pickFile(onResult: (PickedFile?) -> Unit) = onResult(nextFile)
     override fun pickImage(onResult: (ByteArray?) -> Unit) = onResult(nextImage)
+    override suspend fun pdfText(bytes: ByteArray): String? = pdfTextOf(bytes)
 }
+
+/** Text of a PDF with Apache PDFBox. */
+fun pdfTextOf(bytes: ByteArray): String? = runCatching {
+    org.apache.pdfbox.Loader.loadPDF(bytes).use { doc -> org.apache.pdfbox.text.PDFTextStripper().getText(doc) }
+}.getOrNull()
 
 @Composable
 actual fun rememberPlatformActions(): PlatformActions = DesktopPlatform
@@ -41,3 +47,11 @@ actual fun decodeImage(bytes: ByteArray): androidx.compose.ui.graphics.ImageBitm
 
 @Composable
 actual fun appVersion(): String = "development build"
+
+/** Desktop builds are only used for tests and previews; they show a placeholder. */
+@Composable
+actual fun PdfView(bytes: ByteArray, modifier: androidx.compose.ui.Modifier) {
+    androidx.compose.foundation.layout.Box(modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
+        androidx.compose.material3.Text("PDF · ${bytes.size / 1024} KB\n(shown on the phone)", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    }
+}

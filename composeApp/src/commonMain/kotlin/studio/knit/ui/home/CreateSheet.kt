@@ -87,6 +87,14 @@ fun CreateSheet(onDismiss: () -> Unit) {
         }
     }
 
+    suspend fun createFromPdf(picked: studio.knit.ui.platform.PickedFile) {
+        val f = studio.knit.ui.pattern.storePickedPdf(app, picked) ?: return
+        val saved = app.repo.create(Pattern(id = newId(), name = studio.knit.ui.pattern.nameFromPdf(f), files = listOf(f), draft = false))
+        onDismiss()
+        nav.openPattern(saved.id)
+        nav.openPdf(saved.id, f.id)
+    }
+
     val title = when (step) {
         Step.MENU -> "New"
         Step.CHART -> "New chart"
@@ -108,6 +116,13 @@ fun CreateSheet(onDismiss: () -> Unit) {
                         val section = Section(id = newId(), title = "Section 1", rows = listOf(Row(id = newId())))
                         create(Pattern(id = newId(), sections = listOf(section))) { nav.openPattern(it.id, 2); nav.openSection(it.id, section.id) }
                     }
+                    RowDivider(62.dp)
+                    ListRow("PDF pattern", subtitle = "Add a PDF pattern and read it while you knit, with a row counter", leading = { IconTile(Icons.Document) }, chevron = true) {
+                        platform.pickFile { picked ->
+                            if (picked == null) return@pickFile
+                            scope.launch { createFromPdf(picked) }
+                        }
+                    }
                 }
                 SectionHeader("Or start from")
                 Group {
@@ -117,6 +132,8 @@ fun CreateSheet(onDismiss: () -> Unit) {
                         platform.pickFile { file ->
                             if (file == null) return@pickFile
                             scope.launch {
+                                // A PDF chosen here becomes a PDF pattern rather than an error.
+                                if (file.bytes.size >= 4 && file.bytes.decodeToString(0, 4) == "%PDF") { createFromPdf(file); return@launch }
                                 KnitFiles.identifyOtherFile(file.bytes)?.let { app.message("“${file.name}”: $it"); return@launch }
                                 val text = runCatching { file.bytes.decodeToString() }.getOrDefault("")
                                 if (KnitFiles.isBackup(text)) {

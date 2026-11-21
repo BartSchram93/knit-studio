@@ -1,5 +1,14 @@
 package studio.knit.ui.platform
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.dp
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -51,6 +60,9 @@ private class AndroidActions(private val context: Context) : PlatformActions {
 
     override fun pickFile(onResult: (PickedFile?) -> Unit) { onFile = onResult; launchOpen() }
     override fun pickImage(onResult: (ByteArray?) -> Unit) { onImage = onResult; launchImage() }
+
+    override suspend fun pdfText(bytes: ByteArray): String? =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { pdfTextOf(context, bytes) }
 
     fun written(uri: Uri?) {
         val bytes = pendingSave
@@ -146,3 +158,79 @@ actual fun appVersion(): String {
         }.getOrDefault("?")
     }
 }
+
+/**
+ * Renders the pages with android.graphics.pdf.PdfRenderer, one bitmap per page at screen width,
+ * in a scrolling list with pinch-to-zoom.
+ */
+@Composable
+actual fun PdfView(bytes: ByteArray, modifier: androidx.compose.ui.Modifier) {
+    val context = LocalContext.current
+    // PdfRenderer needs a file; the bytes are copied to the private cache for viewing.
+    val renderer = remember(bytes) {
+        runCatching {
+            val file = File(context.cacheDir, "viewer.pdf").apply { writeBytes(bytes) }
+            android.graphics.pdf.PdfRenderer(android.os.ParcelFileDescriptor.open(file, android.os.ParcelFileDescriptor.MODE_READ_ONLY))
+        }.getOrNull()
+    }
+    DisposableEffect(renderer) { onDispose { runCatching { renderer?.close() } } }
+    if (renderer == null) {
+        androidx.compose.foundation.layout.Box(modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
+            androidx.compose.material3.Text("This PDF cannot be shown. It may be damaged or password-protected.")
+        }
+        return
+    }
+    val lock = remember(renderer) { Any() }
+    var scale by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(1f) }
+    var offset by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    androidx.compose.foundation.layout.BoxWithConstraints(
+        modifier
+            .pointerInput(Unit) {
+                detectTransformGestures { _, pan, zoom, _ ->
+                    scale = (scale * zoom).coerceIn(1f, 4f)
+                    offset = if (scale == 1f) androidx.compose.ui.geometry.Offset.Zero else offset + pan
+                }
+            },
+    ) {
+        val widthPx = constraints.maxWidth.coerceAtLeast(1)
+        androidx.compose.foundation.lazy.LazyColumn(
+            androidx.compose.ui.Modifier.graphicsLayer(scaleX = scale, scaleY = scale, translationX = offset.x, translationY = offset.y),
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+        ) {
+            items(renderer.pageCount) { index ->
+                val page by androidx.compose.runtime.produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, renderer, index, widthPx) {
+                    value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        // PdfRenderer can only have one page open at a time.
+                        synchronized(lock) {
+                            runCatching {
+                                renderer.openPage(index).use { p ->
+                                    // Render at up to twice the screen width so zooming stays sharp.
+                                    val w = (widthPx * 2).coerceAtMost(2400)
+                                    val h = (w.toFloat() * p.height / p.width).toInt().coerceAtLeast(1)
+                                    val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                                    bitmap.eraseColor(android.graphics.Color.WHITE)
+                                    p.render(bitmap, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                                    bitmap.asImageBitmap()
+                                }
+                            }.getOrNull()
+                        }
+                    }
+                }
+                val image = page
+                if (image != null) {
+                    androidx.compose.foundation.Image(image, "Page ${index + 1}", androidx.compose.ui.Modifier.fillMaxWidth(), contentScale = androidx.compose.ui.layout.ContentScale.FillWidth)
+                } else {
+                    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxWidth().aspectRatio(0.707f).background(androidx.compose.ui.graphics.Color.White))
+                }
+            }
+        }
+    }
+}
+
+/** Text of a PDF with PdfBox-Android (a port of Apache PDFBox). */
+fun pdfTextOf(context: Context, bytes: ByteArray): String? = runCatching {
+    com.tom_roush.pdfbox.android.PDFBoxResourceLoader.init(context.applicationContext)
+    com.tom_roush.pdfbox.pdmodel.PDDocument.load(bytes).use { doc ->
+        com.tom_roush.pdfbox.text.PDFTextStripper().getText(doc)
+    }
+}.getOrNull()

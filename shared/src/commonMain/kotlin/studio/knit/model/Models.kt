@@ -273,6 +273,16 @@ data class Section(
     val chartId: String? = null,
     /** True while the rows are exactly what was generated from [chartId]. */
     val generated: Boolean = false,
+    /**
+     * Name of the PDF these rows were read from. Rows of an imported section that the app does not
+     * understand are tracked but marked "not checked" instead of reported as errors.
+     */
+    val importedFrom: String? = null,
+    /**
+     * Markers on the needle after the cast-on, as the number of stitches before each marker
+     * (counted from the start of row 1). "k to marker" and "sm" are checked against them.
+     */
+    val markers: List<Int> = emptyList(),
 )
 
 // ---------------------------------------------------------------------------------------------
@@ -308,7 +318,12 @@ data class Progress(
     val positions: Map<String, Int> = emptyMap(),
     val counters: List<Counter> = emptyList(),
     val notes: List<ProjectNote> = emptyList(),
+    /** Knitting log per local calendar day ("2026-11-20"): rows worked and active time. */
+    val days: Map<String, DayLog> = emptyMap(),
 )
+
+@Serializable
+data class DayLog(val rows: Int = 0, val seconds: Long = 0)
 
 // ---------------------------------------------------------------------------------------------
 // Pattern
@@ -329,6 +344,8 @@ data class Pattern(
     val measurements: List<Measurement> = emptyList(),
     val notes: String = "",
     val imageIds: List<String> = emptyList(),
+    /** Attached documents such as PDF patterns. */
+    val files: List<AttachedFile> = emptyList(),
     val charts: List<Chart> = emptyList(),
     val sections: List<Section> = emptyList(),
     /** Snapshot of the user-defined stitches this pattern uses, so the file is self-contained. */
@@ -344,6 +361,16 @@ data class Pattern(
     val sizeCount: Int get() = maxOf(1, sizes.size)
     val displayName: String get() = name.ifBlank { "Untitled pattern" }
 }
+
+/** A document kept with a pattern, e.g. the PDF of a bought pattern. The bytes live in a [studio.knit.data.FileStore]. */
+@Serializable
+data class AttachedFile(
+    val id: String,
+    val name: String,
+    val mime: String = "application/pdf",
+    val sizeBytes: Long = 0,
+    val addedAt: Long = 0,
+)
 
 @Serializable
 data class PatternCollection(val id: String, val name: String, val sortIndex: Int = 0)

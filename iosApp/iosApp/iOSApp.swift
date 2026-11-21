@@ -5,6 +5,11 @@ import ComposeApp
 struct iOSApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        // Also runs when iOS starts the app in the background for a lock-screen button.
+        LockScreenSetup.install()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

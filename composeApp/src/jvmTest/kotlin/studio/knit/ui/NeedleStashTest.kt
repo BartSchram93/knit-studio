@@ -89,11 +89,11 @@ class NeedleStashTest {
         kotlin.test.assertNotNull(runBlocking { env.repo.image(id) })
     }
 
-    @Test fun pickingAPdfToImportSaysWhatItIs() = knitUiTest { _ ->
-        studio.knit.ui.platform.DesktopPlatform.nextFile = studio.knit.ui.platform.PickedFile("Sokken patroon.pdf", "%PDF-1.7\n...".encodeToByteArray())
+    @Test fun pickingAPhotoToImportSaysWhatItIs() = knitUiTest { _ ->
+        studio.knit.ui.platform.DesktopPlatform.nextFile = studio.knit.ui.platform.PickedFile("trui.jpg", byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte(), 0, 0))
         tap("New pattern"); tap("Import a Knit Studio file")
         waitForIdle()
-        assertShown("“Sokken patroon.pdf”: This is a PDF document")
-        shot("38-import-pdf-message")
+        assertShown("“trui.jpg”: This is a photo")
+        shot("38-import-photo-message")
     }
 }

@@ -98,6 +98,8 @@ import studio.knit.ui.platform.KeepScreenOn
 import studio.knit.ui.theme.Knit
 import studio.knit.util.newId
 import studio.knit.util.nowMillis
+import studio.knit.stats.dayKey
+import studio.knit.stats.logRows
 import kotlinx.coroutines.launch
 
 /**
@@ -135,7 +137,12 @@ fun KnitScreen(patternId: String) {
 
     if (tracks.isEmpty()) {
         FixedPage(p.displayName, onBack = nav::back) {
-            EmptyState(Icons.Rows, "Nothing to knit yet", "Add a chart or some written rows to this pattern, then come back.", Modifier.padding(top = 40.dp))
+            val pdf = p.files.firstOrNull()
+            if (pdf != null) {
+                EmptyState(Icons.Document, "Knit from the PDF", "This pattern is a PDF. Open it to read along, with a row counter.", Modifier.padding(top = 40.dp)) {
+                    PrimaryButton("Open PDF", { nav.openPdf(p.id, pdf.id) }, icon = Icons.Document)
+                }
+            } else EmptyState(Icons.Rows, "Nothing to knit yet", "Add a chart, some written rows or a PDF to this pattern, then come back.", Modifier.padding(top = 40.dp))
         }
         return
     }
@@ -143,19 +150,34 @@ fun KnitScreen(patternId: String) {
     val pos = track.position(progress)
 
     fun update(transform: (Progress) -> Progress) = editor.update { it.copy(progress = transform(it.progress ?: startProgress(it, nowMillis()))) }
+    val timer = rememberKnitTimer(editor)
     fun step(delta: Int) {
         val before = pos.done
-        update { it.step(track, delta, nowMillis()) }
+        timer.touch()
+        update { pr ->
+            val now = nowMillis()
+            val next = pr.step(track, delta, now)
+            // Rows actually moved (none past the end or below zero) go into today's log.
+            next.logRows(dayKey(now), (next.positions[track.id] ?: 0) - (pr.positions[track.id] ?: 0))
+        }
         haptic(delta > 0 && !track.repeats && before + delta >= track.length)
     }
 
+    // The row to knit, on the lock screen while Knit mode is open.
+    androidx.compose.runtime.LaunchedEffect(p, library, settings.lockScreenRow) {
+        if (settings.lockScreenRow) studio.knit.companion.knitGlance(p, library, dayKey(nowMillis()), settings.ukTerms)?.let { app.lockScreen.show(it) } else app.lockScreen.clear()
+    }
+    androidx.compose.runtime.DisposableEffect(p.id) { onDispose { app.lockScreen.clear() } }
+
+    androidx.compose.foundation.layout.Box(Modifier.knitActivity(timer)) {
     FixedPage(
         p.displayName, onBack = nav::back,
         actions = {
             IconBtn(Icons.Note, "Notes", { showNotes = true })
-            MenuButton(listOf(
+            MenuButton(listOfNotNull(
                 MenuItem("Go to row…", Icons.Rows) { jumping = true },
                 MenuItem("Size & options", Icons.Settings) { showSetup = true },
+                p.files.firstOrNull { it.mime == "application/pdf" }?.let { pdf -> MenuItem("Open PDF", Icons.Book) { nav.openPdf(p.id, pdf.id) } },
                 MenuItem("Open pattern", Icons.Document) { nav.openPattern(p.id) },
                 MenuItem("Start over", Icons.Undo, destructive = true) { restarting = true },
             ))
@@ -173,14 +195,31 @@ fun KnitScreen(patternId: String) {
         } else Spacer(Modifier.height(10.dp))
 
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            CurrentRowCard(p, track, pos, progress)
+            CurrentRowCard(p, track, pos, progress, library)
             track.chart?.let { chart ->
+                // Wide charts are cut into panels of stitches under each other, showing the rows
+                // around the current one, so nothing needs panning sideways.
+                val wide = chart.cols > WIDE_CHART
+                var whole by androidx.compose.runtime.saveable.rememberSaveable(chart.id) { mutableStateOf(false) }
+                if (wide) {
+                    Row(Modifier.padding(horizontal = PagePadding).padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        studio.knit.ui.components.Chip("Panels", !whole, { whole = false })
+                        studio.knit.ui.components.Chip("Whole chart", whole, { whole = true })
+                    }
+                }
                 Box(Modifier.padding(horizontal = PagePadding).padding(top = 12.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Knit.colors.chartPaper).padding(10.dp)) {
-                    val aspect = (chart.cols + 3.2f) / (chart.rows + 1.6f)
-                    ChartThumbnail(
-                        chart, library, Modifier.fillMaxWidth().height((320f / aspect).coerceIn(90f, 300f).dp),
-                        highlightRow = if (pos.finished) null else pos.chartRow, doneBelow = pos.chartRow, numbers = true,
-                    )
+                    val current = if (pos.finished) null else pos.chartRow
+                    if (wide && !whole) {
+                        val focus = current ?: 0
+                        val window = (focus - 1).coerceAtLeast(0)..(focus + 3).coerceAtMost(chart.rows - 1)
+                        studio.knit.ui.chart.ChartPanels(chart, library, Modifier.fillMaxWidth(), rows = window, highlightRow = current, doneBelow = current)
+                    } else {
+                        val aspect = (chart.cols + 3.2f) / (chart.rows + 1.6f)
+                        ChartThumbnail(
+                            chart, library, Modifier.fillMaxWidth().height((320f / aspect).coerceIn(90f, 300f).dp),
+                            highlightRow = current, doneBelow = current, numbers = true,
+                        )
+                    }
                 }
             }
             CountersRow(progress, onBump = { c, d -> update { pr -> pr.copy(counters = pr.counters.map { if (it.id == c.id) it.bump(d) else it }) }; haptic(false) },
@@ -197,6 +236,7 @@ fun KnitScreen(patternId: String) {
                 Spacer(Modifier.width(10.dp))
                 Text(if (track.repeats) "${pos.rowIndex + 1} / ${track.length}" else "${pos.done} / ${track.length}", style = Knit.type.footnote, color = Knit.colors.secondaryLabel)
             }
+            TodayLine(progress, timer)
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(
@@ -230,6 +270,7 @@ fun KnitScreen(patternId: String) {
         }
     }
 
+    }
     if (showNotes) NotesSheet(progress, pos, track, ::update) { showNotes = false }
     if (showSetup) SetupSheet(p, progress, ::update) { showSetup = false }
     editingCounter?.let { c ->
@@ -250,7 +291,7 @@ fun KnitScreen(patternId: String) {
 }
 
 @Composable
-private fun CurrentRowCard(p: Pattern, track: Track, pos: Position, progress: Progress) {
+private fun CurrentRowCard(p: Pattern, track: Track, pos: Position, progress: Progress, library: StitchLibrary) {
     val round = (track.section?.construction ?: track.chart?.construction) == Construction.ROUND
     Column(
         Modifier.padding(horizontal = PagePadding).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Knit.colors.surface).padding(18.dp)
@@ -286,6 +327,17 @@ private fun CurrentRowCard(p: Pattern, track: Track, pos: Position, progress: Pr
                         }
                         Text(detail, style = Knit.type.subhead, color = Knit.colors.accent)
                     }
+                }
+                // A chart worked on its own: the row written out, as the knitter reads it.
+                val chartText = if (row == null && !pos.finished && track.chart != null) {
+                    val chart = track.chart!!
+                    androidx.compose.runtime.remember(chart, library, pos.rowIndex) {
+                        runCatching { studio.knit.convert.chartToText(chart, library).first.getOrNull(pos.rowIndex) }.getOrNull()
+                    }
+                } else null
+                if (!chartText.isNullOrBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(chartText.replaceFirstChar { it.uppercase() } + ".", style = Knit.type.instruction.copy(fontSize = Knit.type.instruction.fontSize * 1.1f), color = Knit.colors.label)
                 }
                 if (!pos.finished && row != null) {
                     Spacer(Modifier.height(8.dp))
@@ -449,3 +501,20 @@ private fun SetupSheet(p: Pattern, progress: Progress, update: ((Progress) -> Pr
         }
     }
 }
+
+/** "Today 42 min · 18 rows", and whether the timer is paused for inactivity. */
+@Composable
+fun TodayLine(progress: Progress, timer: KnitTimer) {
+    val today = progress.days[dayKey(nowMillis())]
+    val text = buildString {
+        append("Today ")
+        append(studio.knit.stats.formatDuration(today?.seconds ?: 0))
+        append("  ·  ${today?.rows ?: 0} ${if (today?.rows == 1) "row" else "rows"}")
+        if (timer.paused) append("  ·  timer paused, tap to resume")
+    }
+    Text(text, style = Knit.type.footnote, color = if (timer.paused) Knit.colors.warning else Knit.colors.secondaryLabel,
+        modifier = Modifier.padding(top = 6.dp))
+}
+
+/** Charts wider than this are shown in panels in knitting mode. */
+private const val WIDE_CHART = 24

@@ -3,6 +3,48 @@
 ## Unreleased
 
 ### Added
+- **Wide charts**: shown as panels of stitches (1–20, 21–40, …) under each other, each with its own
+  row and stitch numbers — in Knit mode around the current row (with a "Whole chart" switch) and in
+  the chart editor (*Show in panels*, tap to draw). Charts can be up to 500 stitches wide. Knit mode
+  shows a chart row written out, with repeated runs grouped ("(k4, k2tog, yo) 15 times").
+- **Rename stitches**: built-in stitches can get your own name and abbreviation (Tools › Stitch
+  library › a stitch › Rename). The original spellings keep being understood; written rows,
+  knitting mode and PDFs use yours. *Use the original name* undoes it.
+- PDF reading: written-out slip decreases ("sl1, k2tog, psso"), 2/1/2 and 1/2 cables, stitches
+  between asterisks worked once, "turn and cast on", edge stitches given once for all chart rows
+  ("RS rows: …, work chart, …"), headers split over two lines, "Chart 1" parts, and clearer notes
+  for rows continued in another chart.
+- Lock screen: shows the real instruction (charts written out), RS/WS and today's knitting.
+- New stitches: the stitch count is set as **Change in stitch count** (−1 decrease, +1 increase) and
+  **Worked over** (stitches used), instead of "stitches used" and "stitches made".
+- **Rows from a PDF**: *Read rows from PDF* (PDF view menu, the Rows tab and Knit mode's PDF link)
+  reads the PDF's text on the phone (PDFKit on iPhone, PdfBox-Android on Android) and finds rows
+  and rounds ("Row 1 (RS): …", "Rnd 3: …", "Next row: …", "Set-up row", "Rows 2, 3, 4: …",
+  "as Row 2", "Row 2 and all WS rows"), repeat sentences ("Repeat Rows 1 to 4 a total of 4 times",
+  "Repeat these 4 rows 15 times"), parts, cast-on counts, sizes and marker set-ups. A review
+  screen lists everything found plus what to check, and adds the chosen parts as written
+  sections. Rows the app does not understand are tracked but marked "not checked"; count
+  differences in imported rows are warnings. Scanned PDFs without text are explained. Rule-based:
+  no AI, nothing leaves the phone.
+- **Markers**: "knit to marker", "to 2 sts before marker", "sm", "pm", "rm" and named markers
+  ("slip M2") are tracked from row to row (mirrored on flat rows) and checked. Sections have a
+  "markers after cast-on" setting ("2, 2, 2").
+- Parser: "rib to end", "work the stitches as they appear", "knit the knits and purl the purls",
+  "until N sts remain", "bind off all sts knitwise", M3in1, 2/2 purl crosses (T4F/T4B), "sl1 st wyf".
+- **Lock-screen knitting**: while Knit mode is open, the current row is shown on the lock screen
+  with **Back** and **Next row** — an ongoing, silent notification on Android (asks for the
+  notification permission once on Android 13+), a Live Activity on iPhone (iOS 17+, also in the
+  Dynamic Island). Settings › *Current row on the lock screen* turns it off. On iPhone this adds
+  one small app extension, which uses one more of AltStore's free App IDs.
+- **Knitting stats**: active knitting time is measured automatically in knitting mode and the PDF
+  viewer (pausing after 20 minutes without touching the screen), and rows are logged per day.
+  Each pattern shows its totals, rows per knitting day, rows per hour, streak and a 14-day chart;
+  Tools › Knitting stats shows the same across all patterns and per pattern.
+- **PDF patterns**: add a PDF (New › PDF pattern, or to an existing pattern) and read it in the
+  app with the phone's own PDF viewer (PDFKit on iPhone, PdfRenderer on Android), with a saved row
+  counter underneath. PDFs are stored as files in the app's private storage (not the database,
+  which cannot hold large files on Android) and travel with .knit files and backups. Choosing a
+  PDF under "Import" now creates a PDF pattern.
 - **AltStore source**: every build on `main` publishes `altstore-source.json` with the "latest"
   pre-release. Added once in AltStore › Sources, new versions appear as one-tap updates.
 - Needles have a **Brand** field. The stash groups needles into foldable folders per brand, with

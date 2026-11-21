@@ -76,6 +76,9 @@ fun SettingsScreen() {
                 RowDivider()
                 SwitchRow("Keep screen on while knitting", settings.keepScreenOn, { v -> set { it.copy(keepScreenOn = v) } })
                 RowDivider()
+                SwitchRow("Current row on the lock screen", settings.lockScreenRow, { v -> set { it.copy(lockScreenRow = v) } },
+                    "While Knit mode is open, the row to knit and Back / Next buttons are shown on the lock screen")
+                RowDivider()
                 SwitchRow("Tint wrong-side chart rows", settings.shadeWsRows, { v -> set { it.copy(shadeWsRows = v) } },
                     "Rows knitted from the wrong side get a faint colour, so the reading direction is easy to see")
             }

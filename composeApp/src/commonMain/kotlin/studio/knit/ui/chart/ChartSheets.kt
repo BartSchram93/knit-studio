@@ -134,7 +134,7 @@ fun StitchPickerSheet(library: StitchLibrary, selected: String, onPick: (String)
 }
 
 @Composable
-fun StitchInfoSheet(def: StitchDef, library: StitchLibrary, onDismiss: () -> Unit) {
+fun StitchInfoSheet(def: StitchDef, library: StitchLibrary, onRename: (() -> Unit)? = null, onDismiss: () -> Unit) {
     Sheet(def.name, onDismiss) {
         Row(Modifier.padding(horizontal = PagePadding).padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             StitchSymbol(def, cell = 54.dp)
@@ -159,6 +159,12 @@ fun StitchInfoSheet(def: StitchDef, library: StitchLibrary, onDismiss: () -> Uni
             RowDivider()
             ListRow("Worked on", value = def.worksOn.label)
             if (def.abbrUk != null) { RowDivider(); ListRow("UK term", value = def.abbrUk!!) }
+        }
+        if (onRename != null) {
+            SectionHeader("Your name for it")
+            Group {
+                ListRow("Rename", subtitle = "Use your own name and abbreviation in rows, charts and PDFs", titleColor = Knit.colors.accent, chevron = true, onClick = onRename)
+            }
         }
     }
 }

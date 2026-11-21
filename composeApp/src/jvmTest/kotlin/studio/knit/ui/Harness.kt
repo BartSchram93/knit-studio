@@ -33,7 +33,7 @@ class UiEnv(val app: AppContainer, val repo: KnitRepository)
 
 @OptIn(ExperimentalTestApi::class)
 fun knitUiTest(settings: Settings = Settings(haptics = false), seed: suspend (KnitRepository) -> Unit = {}, block: ComposeUiTest.(UiEnv) -> Unit) {
-    val repo = KnitRepository(jvmDriver(), io = Dispatchers.Unconfined)
+    val repo = KnitRepository(jvmDriver(), io = Dispatchers.Unconfined, files = studio.knit.data.JvmFileStore(java.nio.file.Files.createTempDirectory("knit-ui-files").toFile()))
     runBlocking { repo.updateSettings { settings }; seed(repo) }
     val app = AppContainer(repo, Dispatchers.Unconfined, settings)
     DesktopPlatform.written.clear()
@@ -76,4 +76,19 @@ fun ComposeUiTest.shot(name: String) {
 private object ResumedOwner : androidx.lifecycle.LifecycleOwner {
     private val registry = androidx.lifecycle.LifecycleRegistry.createUnsafe(this).also { it.currentState = androidx.lifecycle.Lifecycle.State.RESUMED }
     override val lifecycle: androidx.lifecycle.Lifecycle get() = registry
+}
+
+
+/**
+ * Retries [check] until it passes or [timeoutMs] is over, then reports the last failure.
+ * Use this instead of a fixed delay when waiting for work on other threads (database writes).
+ */
+fun <T> eventually(timeoutMs: Long = 10_000, check: () -> T): T {
+    val end = System.currentTimeMillis() + timeoutMs
+    while (true) {
+        try { return check() } catch (e: Throwable) {
+            if (System.currentTimeMillis() > end) throw e
+            Thread.sleep(20)
+        }
+    }
 }

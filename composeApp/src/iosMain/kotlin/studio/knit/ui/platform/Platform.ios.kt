@@ -119,6 +119,9 @@ private class IosActions : PlatformActions {
         topController()?.presentViewController(picker, animated = true, completion = null)
     }
 
+    override suspend fun pdfText(bytes: ByteArray): String? =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { pdfTextOf(bytes) }
+
     override fun pickImage(onResult: (ByteArray?) -> Unit) {
         val config = PHPickerConfiguration().apply {
             filter = PHPickerFilter.imagesFilter
@@ -181,3 +184,30 @@ actual fun appVersion(): String {
     val build = info?.get("CFBundleVersion") as? String
     return if (build != null) "$version ($build)" else version
 }
+
+@OptIn(ExperimentalForeignApi::class)
+@Composable
+actual fun PdfView(bytes: ByteArray, modifier: androidx.compose.ui.Modifier) {
+    val document = remember(bytes) { platform.PDFKit.PDFDocument(data = bytes.toNSData()) }
+    androidx.compose.ui.viewinterop.UIKitView(
+        factory = {
+            platform.PDFKit.PDFView().apply {
+                autoScales = true
+                displayMode = platform.PDFKit.kPDFDisplaySinglePageContinuous
+                displaysPageBreaks = true
+                this.document = document
+            }
+        },
+        modifier = modifier,
+        update = { view -> if (view.document != document) view.document = document },
+    )
+}
+
+/** Text of a PDF with PDFKit; null when PDFKit cannot open it. */
+fun pdfTextOf(bytes: ByteArray): String? = runCatching {
+    val doc = platform.PDFKit.PDFDocument(data = bytes.toNSData())
+    val pages = doc.pageCount.toInt()
+    if (pages == 0) return null
+    // Page by page with a line break between pages, like the other platforms.
+    (0 until pages).joinToString("\n") { i -> doc.pageAtIndex(i.toULong())?.string ?: "" }
+}.getOrNull()

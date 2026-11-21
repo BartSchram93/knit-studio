@@ -347,12 +347,12 @@ fun NumberField(
 fun String.toDoubleLenient(): Double? = trim().replace(',', '.').toDoubleOrNull()
 
 @Composable
-fun Stepper(value: Int, onChange: (Int) -> Unit, range: IntRange, modifier: Modifier = Modifier, label: String? = null) {
+fun Stepper(value: Int, onChange: (Int) -> Unit, range: IntRange, modifier: Modifier = Modifier, label: String? = null, signed: Boolean = false) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         if (label != null) Text(label, style = Knit.type.body, color = Knit.colors.label, modifier = Modifier.weight(1f))
         Row(Modifier.clip(RoundedCornerShape(9.dp)).background(Knit.colors.fill), verticalAlignment = Alignment.CenterVertically) {
             IconBtn(Icons.Minus, "Decrease ${label ?: ""}", { onChange((value - 1).coerceIn(range)) }, tint = Knit.colors.label, enabled = value > range.first, size = 18.dp)
-            Text(value.toString(), style = Knit.type.headline, color = Knit.colors.label, textAlign = TextAlign.Center, modifier = Modifier.width(44.dp))
+            Text(if (signed && value > 0) "+$value" else if (value < 0) "−${-value}" else value.toString(), style = Knit.type.headline, color = Knit.colors.label, textAlign = TextAlign.Center, modifier = Modifier.width(44.dp))
             IconBtn(Icons.Plus, "Increase ${label ?: ""}", { onChange((value + 1).coerceIn(range)) }, tint = Knit.colors.label, enabled = value < range.last, size = 18.dp)
         }
     }

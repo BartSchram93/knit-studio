@@ -340,11 +340,13 @@ object Validator {
             is Node.Stitch -> when (val c = n.count) {
                 is Count.Fixed -> block(c.n)
                 is Count.ToEnd -> block(c.leaving)
+                is Count.ToMarker -> block(c.before)
             }
             is Node.Group -> {
                 when (val t = n.times) {
                     is Count.Fixed -> block(t.n)
                     is Count.ToEnd -> block(t.leaving)
+                    is Count.ToMarker -> block(t.before)
                 }
                 forEachSized(n.body, block)
             }
