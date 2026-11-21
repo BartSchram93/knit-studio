@@ -34,6 +34,9 @@ class KnitTimer internal constructor() {
     var paused by mutableStateOf(false)
         internal set
 
+    /** Seconds of active knitting since the last long break; the longest is kept as a record. */
+    internal var session = 0L
+
     /** Call on any interaction; also resumes a paused timer. */
     fun touch() { lastActivity = nowMillis(); paused = false }
 
@@ -55,7 +58,12 @@ fun rememberKnitTimer(editor: PatternEditor): KnitTimer {
         val end = minOf(to, timer.lastActivity + KnitTimer.IDLE_LIMIT_MS)
         val seconds = (end - from) / 1000
         if (seconds <= 0) return
-        editor.update { p -> p.copy(progress = (p.progress ?: startProgress(p, from)).logTime(dayKey(from), seconds)) }
+        timer.session += seconds
+        val s = timer.session
+        editor.update { p ->
+            val pr = (p.progress ?: startProgress(p, from)).logTime(dayKey(from), seconds)
+            p.copy(progress = if (s > pr.longestSession) pr.copy(longestSession = s) else pr)
+        }
     }
 
     LaunchedEffect(timer, foreground) {
@@ -68,6 +76,7 @@ fun rememberKnitTimer(editor: PatternEditor): KnitTimer {
                 val now = nowMillis()
                 timer.paused = now - timer.lastActivity > KnitTimer.IDLE_LIMIT_MS
                 record(last, now)
+                if (timer.paused) timer.session = 0
                 last = now
             }
         } finally {

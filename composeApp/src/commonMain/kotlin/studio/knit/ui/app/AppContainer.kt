@@ -49,6 +49,9 @@ class AppContainer(
     /** Saves pending changes and forgets the editor when the pattern is closed. */
     fun release(id: String) { editors.remove(id)?.flush() }
 
+    /** Levels, badges and the moments worth celebrating. */
+    val achievements = AchievementTracker(repo, scope, patterns, library, settings).also { it.start() }
+
     fun flushAll() { editors.values.forEach { it.flush() } }
 
     /** Writes every pending change and returns once it is stored. */

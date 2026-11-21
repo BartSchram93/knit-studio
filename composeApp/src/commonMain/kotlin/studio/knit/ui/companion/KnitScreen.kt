@@ -99,6 +99,7 @@ import studio.knit.ui.theme.Knit
 import studio.knit.util.newId
 import studio.knit.util.nowMillis
 import studio.knit.stats.dayKey
+import studio.knit.stats.logRowsAt
 import studio.knit.stats.logRows
 import kotlinx.coroutines.launch
 
@@ -160,7 +161,7 @@ fun KnitScreen(patternId: String) {
             val now = nowMillis()
             val next = pr.step(track, delta, now)
             // Rows actually moved (none past the end or below zero) go into today's log.
-            next.logRows(dayKey(now), (next.positions[track.id] ?: 0) - (pr.positions[track.id] ?: 0)).also { after = it }
+            next.logRowsAt(now, (next.positions[track.id] ?: 0) - (pr.positions[track.id] ?: 0)).also { after = it }
         }
         val finishedPart = delta > 0 && !track.repeats && before < track.length && before + delta >= track.length
         haptic(finishedPart)

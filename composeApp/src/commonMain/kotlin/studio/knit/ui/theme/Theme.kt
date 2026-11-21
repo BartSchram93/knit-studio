@@ -68,6 +68,9 @@ fun accentOf(accent: AccentColor, dark: Boolean): Color = when (accent) {
     AccentColor.OCEAN -> if (dark) Color(0xFF78B6D4) else Color(0xFF2E6B8A)
     AccentColor.ROSE -> if (dark) Color(0xFFE88FA7) else Color(0xFFB0476A)
     AccentColor.MUSTARD -> if (dark) Color(0xFFE6BC5C) else Color(0xFF9A6B0E)
+    AccentColor.GOLD -> if (dark) Color(0xFFF0C75E) else Color(0xFFA67C00)
+    AccentColor.MIDNIGHT -> if (dark) Color(0xFF8FA4E8) else Color(0xFF2B3A78)
+    AccentColor.BERRY -> if (dark) Color(0xFFD889C8) else Color(0xFF8B2F72)
 }
 
 fun lightColors(accent: Color) = KnitColors(

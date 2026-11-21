@@ -93,6 +93,7 @@ fun KnitNavHost() {
                 composable<ImportRowsRoute> { entry -> entry.toRoute<ImportRowsRoute>().let { studio.knit.ui.pattern.ImportRowsScreen(it.patternId, it.fileId) } }
             }
             MessageBanner()
+            studio.knit.ui.components.CheerHost()
         }
     }
 }
