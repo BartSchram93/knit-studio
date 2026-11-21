@@ -12,6 +12,8 @@ kotlin {
         namespace = "studio.knit.ui"
         compileSdk = libs.versions.androidCompileSdk.get().toInt()
         minSdk = libs.versions.androidMinSdk.get().toInt()
+        // Needed so the bundled fonts (Compose resources) are packaged into the APK.
+        androidResources { enable = true }
     }
     jvm()
     listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
