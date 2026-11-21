@@ -10,16 +10,22 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import org.jetbrains.compose.resources.Font
+import studio.knit.data.AccentColor
 import studio.knit.data.ThemeMode
+import studio.knit.ui.res.Res
+import studio.knit.ui.res.fraunces_bold
+import studio.knit.ui.res.fraunces_semibold
 
 /*
- * Knit Studio design system.
+ * Knit Studio design system: warm and cosy.
  *
- * One restrained palette (grouped greys plus a single madder-red accent), an iOS-style type scale
- * rendered in each platform's system font, and generous spacing. The same tokens drive both
- * platforms so the two apps are recognisably one product.
+ * Cream paper and warm browns instead of grey, one accent colour the knitter picks herself
+ * (terracotta by default), and headings in Fraunces, a soft serif. Body text stays in the
+ * platform's own font for easy reading. The same tokens drive both platforms.
  */
 
 @Immutable
@@ -47,57 +53,76 @@ data class KnitColors(
     val chartWsRow: Color,
     val scrim: Color,
     val isDark: Boolean,
+    /** Colours for confetti, category tiles and other small decorations. */
+    val festive: List<Color> = Festive,
 )
 
-val LightKnitColors = KnitColors(
-    background = Color(0xFFF2F2F7),
-    surface = Color(0xFFFFFFFF),
-    surfaceRaised = Color(0xFFFFFFFF),
-    fill = Color(0x1F767680),
-    separator = Color(0x2E3C3C43),
-    label = Color(0xFF1C1C1E),
-    secondaryLabel = Color(0xFF6E6E73),
-    tertiaryLabel = Color(0xFFAEAEB2),
-    accent = Color(0xFFB4533C),
+/** The palette's companion colours: terracotta, sage, mustard, lavender, ocean, rose. */
+val Festive = listOf(Color(0xFFC2603F), Color(0xFF6F9068), Color(0xFFD9A441), Color(0xFF8C7BB8), Color(0xFF3F7E9C), Color(0xFFC8637F))
+
+/** Accent colour per choice, for light and dark mode. */
+fun accentOf(accent: AccentColor, dark: Boolean): Color = when (accent) {
+    AccentColor.TERRACOTTA -> if (dark) Color(0xFFE58B6E) else Color(0xFFB4533C)
+    AccentColor.SAGE -> if (dark) Color(0xFF9CBE94) else Color(0xFF5A7D55)
+    AccentColor.LAVENDER -> if (dark) Color(0xFFB3A3DE) else Color(0xFF7562A6)
+    AccentColor.OCEAN -> if (dark) Color(0xFF78B6D4) else Color(0xFF2E6B8A)
+    AccentColor.ROSE -> if (dark) Color(0xFFE88FA7) else Color(0xFFB0476A)
+    AccentColor.MUSTARD -> if (dark) Color(0xFFE6BC5C) else Color(0xFF9A6B0E)
+}
+
+fun lightColors(accent: Color) = KnitColors(
+    background = Color(0xFFF8F1E7),
+    surface = Color(0xFFFFFCF7),
+    surfaceRaised = Color(0xFFFFFCF7),
+    fill = Color(0x1F8A6A4F),
+    separator = Color(0x2E6B4E37),
+    label = Color(0xFF2E2420),
+    secondaryLabel = Color(0xFF7A685B),
+    tertiaryLabel = Color(0xFFB9A796),
+    accent = accent,
     onAccent = Color(0xFFFFFFFF),
-    accentSoft = Color(0x1FB4533C),
-    success = Color(0xFF248A3D),
-    warning = Color(0xFFB25000),
-    error = Color(0xFFD70015),
+    accentSoft = accent.copy(alpha = 0.13f),
+    success = Color(0xFF3F7D45),
+    warning = Color(0xFFAD5A00),
+    error = Color(0xFFC62828),
     info = Color(0xFF3A6EA5),
-    chartPaper = Color(0xFFFFFFFF),
-    chartGrid = Color(0xFFC7C7CC),
-    chartInk = Color(0xFF1C1C1E),
-    chartShade = Color(0xFFD1D1D6),
-    chartWsRow = Color(0xFFF7EAE4),
-    scrim = Color(0x66000000),
+    chartPaper = Color(0xFFFFFDF9),
+    chartGrid = Color(0xFFD8CABB),
+    chartInk = Color(0xFF2E2420),
+    chartShade = Color(0xFFDCD1C4),
+    chartWsRow = Color(0xFFF6E8DE),
+    scrim = Color(0x66221812),
     isDark = false,
 )
 
-val DarkKnitColors = KnitColors(
-    background = Color(0xFF000000),
-    surface = Color(0xFF1C1C1E),
-    surfaceRaised = Color(0xFF2C2C2E),
-    fill = Color(0x3D767680),
-    separator = Color(0xA6545458),
-    label = Color(0xFFF5F5F7),
-    secondaryLabel = Color(0xFF98989F),
-    tertiaryLabel = Color(0xFF636366),
-    accent = Color(0xFFE2775F),
-    onAccent = Color(0xFF1C1C1E),
-    accentSoft = Color(0x33E2775F),
-    success = Color(0xFF30D158),
-    warning = Color(0xFFFF9F0A),
-    error = Color(0xFFFF453A),
-    info = Color(0xFF64A8E8),
-    chartPaper = Color(0xFF1C1C1E),
-    chartGrid = Color(0xFF48484A),
-    chartInk = Color(0xFFF2F2F7),
-    chartShade = Color(0xFF3A3A3C),
-    chartWsRow = Color(0xFF2E2421),
+fun darkColors(accent: Color) = KnitColors(
+    background = Color(0xFF17120F),
+    surface = Color(0xFF241D19),
+    surfaceRaised = Color(0xFF2E2621),
+    fill = Color(0x3DA08A78),
+    separator = Color(0x66806A5A),
+    label = Color(0xFFF6EEE6),
+    secondaryLabel = Color(0xFFB4A394),
+    tertiaryLabel = Color(0xFF7A6A5E),
+    accent = accent,
+    onAccent = Color(0xFF1E1714),
+    accentSoft = accent.copy(alpha = 0.2f),
+    success = Color(0xFF7FC486),
+    warning = Color(0xFFFFB45C),
+    error = Color(0xFFFF6B5E),
+    info = Color(0xFF7DB3E8),
+    chartPaper = Color(0xFF241D19),
+    chartGrid = Color(0xFF4A3F37),
+    chartInk = Color(0xFFF6EEE6),
+    chartShade = Color(0xFF3B322C),
+    chartWsRow = Color(0xFF33261F),
     scrim = Color(0x99000000),
     isDark = true,
 )
+
+/** Kept for code and tests that need a palette outside the theme. */
+val LightKnitColors = lightColors(accentOf(AccentColor.TERRACOTTA, false))
+val DarkKnitColors = darkColors(accentOf(AccentColor.TERRACOTTA, true))
 
 @Immutable
 data class KnitType(
@@ -118,6 +143,15 @@ data class KnitType(
     val instruction: TextStyle = TextStyle(fontSize = 19.sp, lineHeight = 27.sp, fontWeight = FontWeight.Normal),
 )
 
+/** The type scale with headings in [display] (Fraunces). */
+fun KnitType.withDisplay(display: FontFamily): KnitType = copy(
+    largeTitle = largeTitle.copy(fontFamily = display, letterSpacing = 0.sp),
+    title1 = title1.copy(fontFamily = display, letterSpacing = 0.sp),
+    title2 = title2.copy(fontFamily = display, letterSpacing = 0.sp),
+    title3 = title3.copy(fontFamily = display),
+    counter = counter.copy(fontFamily = display),
+)
+
 val LocalKnitColors = staticCompositionLocalOf { LightKnitColors }
 val LocalKnitType = staticCompositionLocalOf { KnitType() }
 
@@ -127,13 +161,18 @@ object Knit {
 }
 
 @Composable
-fun KnitTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () -> Unit) {
+fun KnitTheme(mode: ThemeMode = ThemeMode.SYSTEM, accent: AccentColor = AccentColor.TERRACOTTA, content: @Composable () -> Unit) {
     val dark = when (mode) {
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
     }
-    val c = if (dark) DarkKnitColors else LightKnitColors
+    val accentColor = accentOf(accent, dark)
+    val c = if (dark) darkColors(accentColor) else lightColors(accentColor)
+    val display = FontFamily(
+        Font(Res.font.fraunces_semibold, FontWeight.SemiBold),
+        Font(Res.font.fraunces_bold, FontWeight.Bold),
+    )
     // Material components used under the hood (sheets, menus, switches) pick up the same palette.
     val scheme = if (dark) {
         darkColorScheme(
@@ -152,7 +191,7 @@ fun KnitTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () -> Uni
             secondaryContainer = c.accentSoft, onSecondaryContainer = c.label,
         )
     }
-    CompositionLocalProvider(LocalKnitColors provides c, LocalKnitType provides KnitType()) {
+    CompositionLocalProvider(LocalKnitColors provides c, LocalKnitType provides KnitType().withDisplay(display)) {
         MaterialTheme(colorScheme = scheme, content = content)
     }
 }

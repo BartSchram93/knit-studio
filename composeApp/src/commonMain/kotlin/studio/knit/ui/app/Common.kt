@@ -82,7 +82,8 @@ fun rememberHaptic(): (strong: Boolean) -> Unit {
     }
 }
 
-private val TILE_COLORS = listOf(0xFFB4533C, 0xFF2F5D62, 0xFFC08A2B, 0xFF5B6CA8, 0xFF7A8B4F, 0xFF8E5A86, 0xFF4A6FA5, 0xFF9C6644, 0xFF6E6E73)
+// Warm, earthy tile colours per category: terracotta, sage, mustard, lavender, ocean, rose, …
+private val TILE_COLORS = listOf(0xFFC2603F, 0xFF6F9068, 0xFFC99332, 0xFF8C7BB8, 0xFF3F7E9C, 0xFFC8637F, 0xFF9C6644, 0xFF7A8B4F, 0xFF8A776A)
 
 fun categoryColor(category: Category): Color = Color(TILE_COLORS[category.ordinal % TILE_COLORS.size])
 

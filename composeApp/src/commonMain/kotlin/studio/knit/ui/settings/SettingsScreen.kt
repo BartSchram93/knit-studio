@@ -40,6 +40,20 @@ import studio.knit.ui.platform.platformName
 import studio.knit.ui.platform.rememberPlatformActions
 import studio.knit.ui.theme.Knit
 import studio.knit.util.nowMillis
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import studio.knit.ui.components.pressable
 
 @Composable
 fun SettingsScreen() {
@@ -70,6 +84,8 @@ fun SettingsScreen() {
         item { SectionHeader("Appearance") }
         item {
             Segmented(ThemeMode.entries.map { it.label }, settings.theme.ordinal, { i -> set { it.copy(theme = ThemeMode.entries[i]) } }, Modifier.padding(horizontal = PagePadding).fillMaxWidth())
+            Spacer(Modifier.height(14.dp))
+            AccentPicker(settings.accent) { a -> set { it.copy(accent = a) } }
             Spacer(Modifier.height(14.dp))
             Group {
                 SwitchRow("Haptic feedback", settings.haptics, { v -> set { it.copy(haptics = v) } }, "A light tick when drawing stitches and counting rows")
@@ -191,5 +207,30 @@ fun SettingsScreen() {
     if (wiping) {
         ConfirmDialog("Delete everything?", "All patterns, photos, your own stitches and the stash are removed from this device. Make a backup first if you might want them back.",
             "Delete everything", { scope.launch { app.repo.deleteEverything(); app.message("Everything was deleted") } }, { wiping = false }, destructive = true)
+    }
+}
+
+
+/** Round swatches for the app's accent colour. */
+@Composable
+private fun AccentPicker(selected: studio.knit.data.AccentColor, onPick: (studio.knit.data.AccentColor) -> Unit) {
+    val dark = Knit.colors.isDark
+    Column(Modifier.padding(horizontal = PagePadding).fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp)).background(Knit.colors.surface).padding(14.dp)) {
+        Text("Colour", style = Knit.type.body, color = Knit.colors.label)
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            for (a in studio.knit.data.AccentColor.entries) {
+                val color = studio.knit.ui.theme.accentOf(a, dark)
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.pressable { onPick(a) }.semantics { contentDescription = "${a.label} colour" + if (a == selected) ", selected" else "" }) {
+                    Box(
+                        Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).background(color)
+                            .then(if (a == selected) Modifier.border(3.dp, Knit.colors.surface, androidx.compose.foundation.shape.CircleShape) else Modifier),
+                        contentAlignment = Alignment.Center,
+                    ) { if (a == selected) KIcon(Icons.Check, Color.White, 20.dp) }
+                    Spacer(Modifier.height(4.dp))
+                    Text(a.label, style = Knit.type.caption, color = if (a == selected) Knit.colors.label else Knit.colors.secondaryLabel)
+                }
+            }
+        }
     }
 }
