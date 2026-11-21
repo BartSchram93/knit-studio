@@ -22,7 +22,7 @@ class StatsUiTest {
         onNodeWithContentDescription("Back one row").performClick(); waitForIdle()
         assertShown("Today")
         assertShown("3 rows")
-        runBlocking { env.app.flushAll(); kotlinx.coroutines.delay(100) }
+        runBlocking { env.app.flushAllAndWait() }
         val p = runBlocking { env.repo.patterns.first() }.first { it.name == "Ribbed scarf" }
         assertEquals(3, p.progress!!.days[dayKey(nowMillis())]!!.rows)
         shot("42-knit-today")

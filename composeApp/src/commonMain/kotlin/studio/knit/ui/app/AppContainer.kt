@@ -51,6 +51,9 @@ class AppContainer(
 
     fun flushAll() { editors.values.forEach { it.flush() } }
 
+    /** Writes every pending change and returns once it is stored. */
+    suspend fun flushAllAndWait() { editors.values.toList().forEach { it.flushAndWait() } }
+
     /** Shows the row being knitted outside the app (Android notification, iOS Live Activity). */
     var lockScreen: LockScreenKnitting = LockScreenKnitting.None
 

@@ -31,7 +31,7 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalTestApi::class)
 class WorkflowTest {
-    private fun UiEnv.patterns(): List<Pattern> = runBlocking { app.flushAll(); kotlinx.coroutines.delay(50); repo.patterns.first() }
+    private fun UiEnv.patterns(): List<Pattern> = runBlocking { app.flushAllAndWait(); repo.patterns.first() }
 
     @Test fun createBlankPatternAndEditDetails() = knitUiTest { env ->
         tap("New pattern")

@@ -23,7 +23,7 @@ class PdfPatternTest {
         repeat(3) { onNodeWithContentDescription("Row done").performClick(); waitForIdle() }
         onNodeWithContentDescription("One row back").performClick(); waitForIdle()
         shot("40-pdf-viewer")
-        runBlocking { env.app.flushAll(); kotlinx.coroutines.delay(100) }
+        runBlocking { env.app.flushAllAndWait() }
         val p = runBlocking { env.repo.patterns.first() }.single()
         assertEquals("Fjord sjaal", p.name)
         val f = p.files.single()

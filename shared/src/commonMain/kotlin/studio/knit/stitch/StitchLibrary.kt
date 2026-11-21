@@ -16,8 +16,36 @@ import studio.knit.model.WorksOn
  * Lookups by id are used by charts; lookups by abbreviation are used by the instruction parser.
  */
 class StitchLibrary(custom: List<StitchDef> = emptyList()) {
-    /** Built-ins first, then custom stitches. A custom stitch never shadows a built-in id. */
-    val all: List<StitchDef> = BuiltInStitches.all + custom.filter { c -> BuiltInStitches.all.none { it.id == c.id } }
+    /**
+     * Built-ins first, then custom stitches. A saved stitch with a built-in id only renames that
+     * stitch (name and abbreviation); how it is worked and counted stays the built-in one, and
+     * its original names keep being understood when reading rows.
+     */
+    val all: List<StitchDef> = run {
+        val builtInIds = BuiltInStitches.all.mapTo(HashSet()) { it.id }
+        val renames = custom.filter { it.id in builtInIds }.associateBy { it.id }
+        BuiltInStitches.all.map { b -> renames[b.id]?.let { renamed(b, it) } ?: b } +
+            custom.filter { it.id !in builtInIds }
+    }
+
+    private fun renamed(b: StitchDef, r: StitchDef): StitchDef {
+        val name = r.name.trim().ifEmpty { b.name }
+        val abbr = r.abbr.trim().ifEmpty { b.abbr }
+        val abbrChanged = !abbr.equals(b.abbr, ignoreCase = true)
+        return b.copy(
+            name = name, abbr = abbr,
+            // A new abbreviation is used in both US and UK wording.
+            abbrUk = if (abbrChanged) null else b.abbrUk,
+            aliases = (b.aliases + listOfNotNull(b.abbr, b.abbrUk, b.name)).distinct(),
+        )
+    }
+
+    /** True when the user gave this built-in stitch their own name or abbreviation. */
+    fun isRenamed(id: String): Boolean {
+        val original = BuiltInStitches.all.firstOrNull { it.id == id } ?: return false
+        val now = byId[id] ?: return false
+        return now.name != original.name || now.abbr != original.abbr
+    }
 
     private val byId: Map<String, StitchDef> = all.associateBy { it.id }
 

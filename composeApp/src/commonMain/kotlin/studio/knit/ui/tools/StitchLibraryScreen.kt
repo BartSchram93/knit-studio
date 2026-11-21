@@ -91,8 +91,54 @@ fun StitchLibraryScreen() {
         }
         item { SectionFooter("${library.all.size} stitches. Each one knows how many stitches it uses and makes — that is what lets Knit Studio check your counts.") }
     }
-    info?.let { StitchInfoSheet(it, library) { info = null } }
+    var renaming by remember { mutableStateOf<StitchDef?>(null) }
+    info?.let { def -> StitchInfoSheet(def, library, onRename = { info = null; renaming = def }) { info = null } }
+    renaming?.let { def -> RenameStitchSheet(def, library) { renaming = null } }
     editing?.let { def -> CustomStitchSheet(def, library, isNew = library[def.id] == null) { editing = null } }
+}
+
+/**
+ * Gives a built-in stitch the knitter's own name and abbreviation, e.g. "skp" instead of "skpo".
+ * The original spellings keep being understood in rows and imported patterns.
+ */
+@Composable
+private fun RenameStitchSheet(def: StitchDef, library: StitchLibrary, onDismiss: () -> Unit) {
+    val app = LocalApp.current
+    val scope = rememberCoroutineScope()
+    val original = studio.knit.stitch.BuiltInStitches.all.first { it.id == def.id }
+    var name by remember { mutableStateOf(def.name) }
+    var abbr by remember { mutableStateOf(def.abbr) }
+    val clash = library.spellings.firstOrNull { (spelling, d) -> d.id != def.id && spelling == abbr.trim().lowercase() }?.second
+    Sheet("Rename stitch", onDismiss, doneLabel = "Save", onDone = {
+        if (clash != null || abbr.isBlank()) return@Sheet
+        scope.launch {
+            if (name.trim() == original.name && abbr.trim() == original.abbr) app.repo.deleteStitch(def.id)
+            else app.repo.saveStitch(original.copy(name = name.trim(), abbr = abbr.trim()))
+            app.message("“${original.abbr}” is now shown as “${abbr.trim()}”")
+        }
+        onDismiss()
+    }) {
+        Column(Modifier.padding(horizontal = PagePadding).padding(top = 8.dp)) {
+            studio.knit.ui.components.Field(name, { name = it }, Modifier.fillMaxWidth(), "Name")
+            Spacer(Modifier.height(12.dp))
+            studio.knit.ui.components.Field(abbr, { abbr = it }, Modifier.fillMaxWidth(), "Abbreviation", isError = clash != null,
+                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None)
+        }
+        SectionFooter(
+            if (clash != null) "“${abbr.trim()}” already means ${clash.name}. Choose another abbreviation."
+            else "Original: ${original.name} (${original.abbr}). Rows written with the original abbreviation keep working; " +
+                "written rows, knitting mode and PDFs show your abbreviation."
+        )
+        if (library.isRenamed(def.id)) {
+            Spacer(Modifier.height(8.dp))
+            Group {
+                ListRow("Use the original name", titleColor = Knit.colors.accent) {
+                    scope.launch { app.repo.deleteStitch(def.id); app.message("Back to “${original.abbr}”") }
+                    onDismiss()
+                }
+            }
+        }
+    }
 }
 
 /** Create or edit a user-defined stitch, including its chart symbol and stitch arithmetic. */
@@ -122,13 +168,22 @@ private fun CustomStitchSheet(initial: StitchDef, library: StitchLibrary, isNew:
 
         SectionHeader("Stitch count")
         Group {
-            Stepper(d.consumes, { d = d.copy(consumes = it) }, 0..12, Modifier.padding(horizontal = 16.dp, vertical = 8.dp), "Stitches used")
+            // Knitters think in "decreases 1" (−1) and "worked over 2 stitches"; the stitches it
+            // leaves on the needle follow from those two.
+            val change = d.produces - d.consumes
+            Stepper(change, { c -> d = d.copy(produces = (d.consumes + c).coerceAtLeast(0)) }, -d.consumes..8,
+                Modifier.padding(horizontal = 16.dp, vertical = 8.dp), "Change in stitch count", signed = true)
             RowDivider()
-            Stepper(d.produces, { d = d.copy(produces = it) }, 0..12, Modifier.padding(horizontal = 16.dp, vertical = 8.dp), "Stitches made")
+            Stepper(d.consumes, { n -> d = d.copy(consumes = n, produces = (n + change).coerceAtLeast(0)) }, 0..12,
+                Modifier.padding(horizontal = 16.dp, vertical = 8.dp), "Worked over (stitches)")
             RowDivider()
             Stepper(d.width, { d = d.copy(width = it) }, 1..8, Modifier.padding(horizontal = 16.dp, vertical = 8.dp), "Chart cells wide")
         }
-        SectionFooter("Used = stitches worked off the left needle. Made = stitches on the right needle afterwards. A yarn over uses 0 and makes 1; k2tog uses 2 and makes 1. Result: ${deltaLabel(d)}.")
+        SectionFooter(
+            "Change: −1 for a decrease, +1 for an increase, 0 when the count stays the same. Worked over: how many stitches it uses " +
+                "from the left needle — k2tog is worked over 2 (change −1), a yarn over over 0 (change +1), a 4-stitch cable over 4 (change 0). " +
+                "This stitch uses ${d.consumes} and leaves ${d.produces} on the right needle."
+        )
 
         SectionHeader("Symbol")
         FixedGrid(Glyphs.pickable, 5, Modifier.padding(horizontal = PagePadding)) { key, m ->

@@ -3,6 +3,20 @@
 ## Unreleased
 
 ### Added
+- **Wide charts**: shown as panels of stitches (1–20, 21–40, …) under each other, each with its own
+  row and stitch numbers — in Knit mode around the current row (with a "Whole chart" switch) and in
+  the chart editor (*Show in panels*, tap to draw). Charts can be up to 500 stitches wide. Knit mode
+  shows a chart row written out, with repeated runs grouped ("(k4, k2tog, yo) 15 times").
+- **Rename stitches**: built-in stitches can get your own name and abbreviation (Tools › Stitch
+  library › a stitch › Rename). The original spellings keep being understood; written rows,
+  knitting mode and PDFs use yours. *Use the original name* undoes it.
+- PDF reading: written-out slip decreases ("sl1, k2tog, psso"), 2/1/2 and 1/2 cables, stitches
+  between asterisks worked once, "turn and cast on", edge stitches given once for all chart rows
+  ("RS rows: …, work chart, …"), headers split over two lines, "Chart 1" parts, and clearer notes
+  for rows continued in another chart.
+- Lock screen: shows the real instruction (charts written out), RS/WS and today's knitting.
+- New stitches: the stitch count is set as **Change in stitch count** (−1 decrease, +1 increase) and
+  **Worked over** (stitches used), instead of "stitches used" and "stitches made".
 - **Rows from a PDF**: *Read rows from PDF* (PDF view menu, the Rows tab and Knit mode's PDF link)
   reads the PDF's text on the phone (PDFKit on iPhone, PdfBox-Android on Android) and finds rows
   and rounds ("Row 1 (RS): …", "Rnd 3: …", "Next row: …", "Set-up row", "Rows 2, 3, 4: …",

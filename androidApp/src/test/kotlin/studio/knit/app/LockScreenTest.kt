@@ -47,14 +47,15 @@ class LockScreenTest {
         // Press "Next row" the way the notification does.
         app.sendBroadcast(Intent(app, KnitStepReceiver::class.java).setAction(AndroidLockScreen.ACTION_STEP)
             .putExtra(AndroidLockScreen.EXTRA_PATTERN, "lock-1").putExtra(AndroidLockScreen.EXTRA_DELTA, 1))
-        shadowOf(android.os.Looper.getMainLooper()).idle()
-        var saved = c.repo.getPattern("lock-1")!!
-        for (i in 0 until 50) {
-            if (saved.progress?.positions?.get("s1") == 1) break
-            Thread.sleep(50); shadowOf(android.os.Looper.getMainLooper()).idle()
-            saved = c.repo.getPattern("lock-1")!!
+        // Wait for what the knitter sees: the notification for the next row. It is posted after
+        // the change has been saved, so the saved position is checked afterwards.
+        val deadline = System.currentTimeMillis() + 10_000
+        fun title() = shadowOf(manager).allNotifications.singleOrNull()?.extras?.getString("android.title")
+        while (title() != "Row 2 of 2 (WS) · Rib" && System.currentTimeMillis() < deadline) {
+            shadowOf(android.os.Looper.getMainLooper()).idle()
+            Thread.sleep(20)
         }
-        assertEquals(1, saved.progress!!.positions["s1"])
+        assertEquals(1, c.repo.getPattern("lock-1")!!.progress!!.positions["s1"])
         val updated = shadowOf(manager).allNotifications.single()
         assertEquals("Row 2 of 2 (WS) · Rib", updated.extras.getString("android.title"))
         assertEquals(listOf("Back", "Next row"), updated.actions.map { it.title.toString() })

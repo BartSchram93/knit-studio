@@ -71,3 +71,27 @@ class CompressRunsTest {
         assertEquals("P2, (yo, k2tog, k2) 3 times", text)
     }
 }
+
+class RenameStitchTest {
+    @Test fun renamedBuiltInKeepsWorkingUnderBothNames() {
+        val original = studio.knit.stitch.StitchLibrary()["skpo"]!!
+        val lib2 = studio.knit.stitch.StitchLibrary(listOf(original.copy(name = "Slip knit pass", abbr = "skp2", builtIn = false)))
+        val def = lib2["skpo"]!!
+        assertEquals("skp2", def.abbr)
+        assertTrue(def.builtIn)
+        assertEquals(original.consumes, def.consumes)
+        assertTrue(lib2.isRenamed("skpo"))
+        val parser = studio.knit.written.RowParser(lib2)
+        // Old and new spellings both mean the same stitch.
+        for (row in listOf("k1, skpo, k1", "k1, skp2, k1")) {
+            val r = parser.parse(row)
+            assertTrue(r.errors.isEmpty(), row)
+            assertEquals(3, studio.knit.written.RowEvaluator().evaluate(r, 4).produced)
+        }
+        // Written rows use the knitter's name.
+        assertEquals("K1, skp2, k1", studio.knit.written.RowPrinter().print(parser.parse("k1, skpo, k1").nodes))
+        // A rename cannot change how the stitch is counted.
+        val sneaky = studio.knit.stitch.StitchLibrary(listOf(original.copy(abbr = "x", consumes = 9, builtIn = false)))
+        assertEquals(2, sneaky["skpo"]!!.consumes)
+    }
+}

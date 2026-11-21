@@ -54,7 +54,7 @@ class RowsFromPdfTest {
         shot("45-rows-from-pdf")
         tap("Add 3 rows to pattern")
         waitForIdle()
-        runBlocking { env.app.flushAll(); kotlinx.coroutines.delay(100) }
+        runBlocking { env.app.flushAllAndWait() }
         val p = runBlocking { env.repo.patterns.first() }.single()
         assertEquals(listOf("Ribbing", "Body"), p.sections.map { it.title })
         assertEquals(listOf("Size 1", "Size 2"), p.sizes)
