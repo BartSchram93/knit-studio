@@ -3,6 +3,15 @@
 ## Unreleased
 
 ### Added
+- **Achievements & levels**: 37 achievements in 7 categories (rows & stitches, time, keeping at it,
+  projects, techniques, making & exploring, hidden), most with bronze/silver/gold tiers; hidden ones
+  show a hint until found. A knitting level (1–40) with titles, a "next goal" and streak on the home
+  screen, small cheers (halfway through a part, a new record, a new badge) and confetti for big ones.
+  Earlier knitting counts: it is awarded quietly the first time. Streaks allow one rest day a week.
+  Rewards: extra colours (Gold, Midnight, Berry) and confetti styles (yarn balls, stars, leaves).
+  Personal records on the stats page and "Your knitting year". Settings › *Achievements & levels*
+  turns it off. Rows per hour, rows taken out and the longest session are now logged for this.
+- **Stitches per panel** for wide charts can be chosen (− / +, or Auto) in Knit mode and the editor.
 - **Wide charts**: shown as panels of stitches (1–20, 21–40, …) under each other, each with its own
   row and stitch numbers — in Knit mode around the current row (with a "Whole chart" switch) and in
   the chart editor (*Show in panels*, tap to draw). Charts can be up to 500 stitches wide. Knit mode

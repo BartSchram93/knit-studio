@@ -130,6 +130,7 @@ fun StatsScreen() {
     val app = LocalApp.current
     val nav = LocalNav.current
     val patterns by app.patterns.collectAsState()
+    val achievementFacts by app.achievements.facts.collectAsState()
     val today = remember { dayKey(nowMillis()) }
     val all = patterns.orEmpty()
     val stats = remember(all, today) { statsOf(all.mapNotNull { it.progress?.days }, today) }
@@ -142,6 +143,29 @@ fun StatsScreen() {
         item { StatTiles(listOf(formatDuration(stats.weekSeconds) to "knitted in the last 7 days", "${stats.weekRows}" to "rows in the last 7 days")) }
         item { SectionHeader("All time") }
         item { StatsBlock(stats) }
+        achievementFacts?.let { f ->
+            item { SectionHeader("Personal records") }
+            item {
+                Group {
+                    ListRow("Most rows in one day", value = "${f.maxRowsInDay}")
+                    RowDivider()
+                    ListRow("Longest session", value = if (f.longestSession > 0) formatDuration(f.longestSession) else "—", subtitle = "Without a break of 20 minutes")
+                    RowDivider()
+                    ListRow("Longest streak", value = "${f.bestStreak} ${if (f.bestStreak == 1) "day" else "days"}", subtitle = "One rest day a week allowed")
+                    RowDivider()
+                    ListRow("Stitches knitted", value = studio.knit.achieve.formatCount(f.totalStitches), subtitle = "In rows the app could count")
+                    val fastest = all.mapNotNull { p -> p.progress?.let { pr -> pr.finishedAt?.let { (it - pr.startedAt) / 86_400_000L } } }.minOrNull()
+                    if (fastest != null) { RowDivider(); ListRow("Fastest finished project", value = if (fastest < 1) "under a day" else "$fastest ${if (fastest == 1L) "day" else "days"}") }
+                }
+            }
+            item {
+                Group(Modifier.padding(top = 12.dp)) {
+                    ListRow("Achievements", subtitle = "Your level, badges and hidden surprises", leading = { Text("🏅", style = Knit.type.title3) }, chevron = true) { nav.tool("achievements") }
+                    RowDivider()
+                    ListRow("Your knitting year", subtitle = "This year on one page", leading = { Text("📖", style = Knit.type.title3) }, chevron = true) { nav.tool("year") }
+                }
+            }
+        }
         val perPattern = all.mapNotNull { p ->
             val s = statsOf(listOfNotNull(p.progress?.days), today)
             if (s.isEmpty) null else p to s

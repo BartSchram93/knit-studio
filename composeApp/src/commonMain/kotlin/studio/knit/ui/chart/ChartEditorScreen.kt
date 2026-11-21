@@ -1,5 +1,6 @@
 package studio.knit.ui.chart
 
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
@@ -155,7 +156,8 @@ fun ChartEditorScreen(patternId: String, chartId: String, focusRow: Int, focusCo
     ) {
         if (panels) {
             Column(Modifier.weight(1f).fillMaxWidth().background(Knit.colors.chartPaper).then(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())).padding(horizontal = 8.dp, vertical = 6.dp)) {
-                ChartPanels(shown, library, Modifier.fillMaxWidth(), cellSize = 28.dp) { r, c -> state.tap(chart, r to c) }
+                ChartPanels(shown, library, Modifier.fillMaxWidth(), cellSize = 28.dp, perPanel = settings.panelStitches,
+                    onPerPanelChange = { n -> app.scope.launch { app.repo.updateSettings { s -> s.copy(panelStitches = n) } } }) { r, c -> state.tap(chart, r to c) }
             }
         } else {
             ChartCanvas(shown, library, state, Modifier.weight(1f).fillMaxWidth(), onLongPress = { cell -> haptic(true); cellMenu = cell })

@@ -6,7 +6,7 @@ import studio.knit.chart.sideOf
 import studio.knit.convert.chartToText
 import studio.knit.stats.dayKey
 import studio.knit.stats.formatDuration
-import studio.knit.stats.logRows
+import studio.knit.stats.logRowsAt
 import studio.knit.stitch.StitchLibrary
 
 /**
@@ -87,5 +87,5 @@ fun Pattern.stepKnitting(library: StitchLibrary, delta: Int, now: Long): Pattern
     val track = tracks.firstOrNull { it.id == progress.activeTrackId } ?: tracks.firstOrNull() ?: return this
     val next = progress.step(track, delta, now)
     val moved = (next.positions[track.id] ?: 0) - (progress.positions[track.id] ?: 0)
-    return copy(progress = next.logRows(dayKey(now), moved))
+    return copy(progress = next.logRowsAt(now, moved))
 }

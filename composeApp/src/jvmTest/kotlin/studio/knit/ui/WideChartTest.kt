@@ -10,6 +10,7 @@ import studio.knit.model.Chart
 import studio.knit.model.Pattern
 import studio.knit.ui.chart.columnsFor
 import studio.knit.ui.chart.panelRanges
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -49,5 +50,24 @@ class WideChartTest {
         shot("52-editor-wide-chart-panels")
         runBlocking { env.app.flushAll() }
         assertEquals(90, runBlocking { env.repo.patterns.first() }.single().charts.single().cols)
+    }
+
+    @Test fun stitchesPerPanelCanBeChosen() {
+        // Auto: as many as fit with readable cells, in fives once there is room for ten.
+        assertEquals(15, studio.knit.ui.chart.stitchesPerPanel(380.dp, 90))
+        assertEquals(20, studio.knit.ui.chart.stitchesPerPanel(380.dp, 90, chosen = 20))
+        assertEquals(12, studio.knit.ui.chart.stitchesPerPanel(380.dp, 12, chosen = 20))
+    }
+
+    @Test fun moreStitchesPerPanelInKnitMode() = knitUiTest(seed = { repo ->
+        repo.create(Pattern(id = "w", name = "Wide hat", charts = listOf(chart)))
+    }) { env ->
+        tap("Patterns"); tap("Wide hat"); tap("Start knitting")
+        assertShown("Auto ·")
+        repeat(4) { onNodeWithContentDescription("More stitches per panel").performClick(); waitForIdle() }
+        eventually { assertEquals(true, runBlocking { env.repo.settingsNow() }.panelStitches >= 20) }
+        waitForIdle()
+        assertShown("Stitches 1–${runBlocking { env.repo.settingsNow() }.panelStitches}")
+        shot("53-knit-panel-width")
     }
 }

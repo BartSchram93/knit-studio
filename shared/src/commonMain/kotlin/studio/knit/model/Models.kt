@@ -320,10 +320,21 @@ data class Progress(
     val notes: List<ProjectNote> = emptyList(),
     /** Knitting log per local calendar day ("2026-11-20"): rows worked and active time. */
     val days: Map<String, DayLog> = emptyMap(),
+    /** Rows stepped back in total (taking out and re-knitting rows). */
+    val undone: Int = 0,
+    /** Longest stretch of active knitting without a long break, in seconds. */
+    val longestSession: Long = 0,
+    /** Small moments worth remembering for achievements, e.g. "midnight". */
+    val moments: Set<String> = emptySet(),
 )
 
 @Serializable
-data class DayLog(val rows: Int = 0, val seconds: Long = 0)
+data class DayLog(
+    val rows: Int = 0,
+    val seconds: Long = 0,
+    /** Rows per hour of the day (0–23), for "night owl" and "early bird". */
+    val hours: Map<Int, Int> = emptyMap(),
+)
 
 // ---------------------------------------------------------------------------------------------
 // Pattern

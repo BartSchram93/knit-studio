@@ -55,6 +55,9 @@ fun HomeScreen(onSeeAll: () -> Unit) {
     val nav = LocalNav.current
     val all by app.patterns.collectAsState()
     val library by app.library.collectAsState()
+    // Read so the home screen follows new achievements and the setting.
+    val achievementFacts by app.achievements.facts.collectAsState()
+    val settings by app.settings.collectAsState()
     var creating by remember { mutableStateOf(false) }
     val now = remember(all) { nowMillis() }
 
@@ -86,6 +89,13 @@ fun HomeScreen(onSeeAll: () -> Unit) {
                 greetingNow(), subtitle, Modifier.padding(horizontal = PagePadding).padding(top = 4.dp, bottom = 4.dp),
                 action = last?.let { p -> { PrimaryButton("Continue ${p.displayName}", { nav.knit(p.id) }, icon = Icons.Play) } },
             )
+        }
+
+        val facts = achievementFacts
+        if (settings.achievements && facts != null && facts.totalRows > 0) {
+            item {
+                studio.knit.ui.tools.LevelCard(facts, Modifier.padding(horizontal = PagePadding).padding(top = 8.dp)) { nav.tool("achievements") }
+            }
         }
 
         if (knitting.isNotEmpty()) {

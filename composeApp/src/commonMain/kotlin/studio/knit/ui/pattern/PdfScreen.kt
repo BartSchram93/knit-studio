@@ -1,5 +1,7 @@
 package studio.knit.ui.pattern
 
+import studio.knit.stats.logRowsAt
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -91,7 +93,7 @@ fun PdfScreen(patternId: String, fileId: String) {
                 ?: Counter(id = pdfCounterId(file), name = "Rows · ${file.name.removeSuffix(".pdf")}")
             val next = existing.bump(delta)
             val day = studio.knit.stats.dayKey(nowMillis())
-            p.copy(progress = progress.logRows(day, next.value - existing.value).copy(
+            p.copy(progress = progress.logRowsAt(nowMillis(), next.value - existing.value).copy(
                 lastKnitAt = nowMillis(),
                 counters = if (progress.counters.any { it.id == next.id }) progress.counters.map { if (it.id == next.id) next else it } else progress.counters + next,
             ))

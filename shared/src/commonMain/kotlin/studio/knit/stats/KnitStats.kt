@@ -26,9 +26,33 @@ private fun Progress.withDay(day: String, transform: (DayLog) -> DayLog): Progre
     return copy(days = if (next.rows == 0 && next.seconds == 0L) days - day else days + (day to next))
 }
 
-/** Records [delta] rows on [day]. Going back a row takes it off again, never below zero. */
-fun Progress.logRows(day: String, delta: Int): Progress =
-    if (delta == 0) this else withDay(day) { it.copy(rows = (it.rows + delta).coerceAtLeast(0)) }
+/**
+ * Records [delta] rows on [day] (and in [hour] of that day, when given). Going back a row takes
+ * it off again, never below zero, and is counted in [Progress.undone].
+ */
+fun Progress.logRows(day: String, delta: Int, hour: Int? = null): Progress {
+    if (delta == 0) return this
+    val logged = withDay(day) { d ->
+        val hours = if (hour == null) d.hours else {
+            val n = ((d.hours[hour] ?: 0) + delta).coerceAtLeast(0)
+            if (n == 0) d.hours - hour else d.hours + (hour to n)
+        }
+        d.copy(rows = (d.rows + delta).coerceAtLeast(0), hours = hours)
+    }
+    return if (delta < 0) logged.copy(undone = undone - delta) else logged
+}
+
+/** Hour of the day (0–23) and minute for a moment, in the device's time zone. */
+@OptIn(ExperimentalTime::class)
+fun hourMinute(millis: Long, zone: TimeZone = TimeZone.currentSystemDefault()): Pair<Int, Int> =
+    Instant.fromEpochMilliseconds(millis).toLocalDateTime(zone).let { it.hour to it.minute }
+
+/** Logs rows knitted at [now]: day, hour, and a "midnight" moment for a row done at 23:59–00:00. */
+fun Progress.logRowsAt(now: Long, delta: Int): Progress {
+    val (h, m) = hourMinute(now)
+    val logged = logRows(dayKey(now), delta, h)
+    return if (delta > 0 && ((h == 23 && m == 59) || (h == 0 && m == 0))) logged.copy(moments = logged.moments + "midnight") else logged
+}
 
 /** Records [seconds] of active knitting on [day]. */
 fun Progress.logTime(day: String, seconds: Long): Progress =
