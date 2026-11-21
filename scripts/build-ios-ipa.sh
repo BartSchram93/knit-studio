@@ -88,6 +88,8 @@ check "lock-screen extension has the app's version ($WIDGET_VERSION)" "$([ "$WID
 check "app declares Live Activities (NSSupportsLiveActivities)" "$([ "$(read_plist NSSupportsLiveActivities)" = "true" ] && echo ok)"
 check "no embedded provisioning profile (AltStore supplies its own)" "$([ ! -f "$APP/embedded.mobileprovision" ] && [ ! -f "$WIDGET/embedded.mobileprovision" ] && echo ok)"
 check "no entitlements requiring a paid account (iCloud, push, app groups)" "$( (codesign -d --entitlements :- "$APP" 2>/dev/null; codesign -d --entitlements :- "$WIDGET" 2>/dev/null || true) | grep -qE 'icloud|aps-environment|application-groups' || echo ok)"
+FONTS="$(find "$APP" -name 'fraunces_*.ttf' | wc -l | tr -d ' ')"
+check "heading font is in the app ($FONTS Fraunces files)" "$([ "$FONTS" -ge 2 ] && echo ok)"
 ICON="$(ls "$APP"/AppIcon*.png 2>/dev/null | head -1 | xargs -I{} basename {} || true)"
 echo "  · app icon: ${ICON:-$( [ -f "$APP/Assets.car" ] && echo "in Assets.car" || echo "not found (the app works, but shows a blank icon)")}"
 EMBEDDED="$(find "$APP" -maxdepth 2 \( -name '*.framework' -o -name '*.dylib' \) | sed "s|$APP/||" | tr '\n' ' ')"

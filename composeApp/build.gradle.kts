@@ -12,6 +12,8 @@ kotlin {
         namespace = "studio.knit.ui"
         compileSdk = libs.versions.androidCompileSdk.get().toInt()
         minSdk = libs.versions.androidMinSdk.get().toInt()
+        // Needed so the bundled fonts (Compose resources) are packaged into the APK.
+        androidResources { enable = true }
     }
     jvm()
     listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
@@ -31,6 +33,8 @@ kotlin {
             implementation(compose.foundation)
             implementation(compose.material3)
             implementation(compose.ui)
+            // Bundled fonts (Fraunces for headings, SIL Open Font License: licenses/Fraunces-OFL.txt).
+            implementation(compose.components.resources)
             implementation(libs.navigation.compose)
             implementation(libs.lifecycle.viewmodel.compose)
             implementation(libs.lifecycle.runtime.compose)
@@ -64,4 +68,9 @@ kotlin {
             implementation(libs.sqldelight.jvm)
         }
     }
+}
+
+compose.resources {
+    packageOfResClass = "studio.knit.ui.res"
+    generateResClass = always
 }

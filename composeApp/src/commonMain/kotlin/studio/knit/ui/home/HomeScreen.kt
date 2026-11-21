@@ -41,6 +41,9 @@ import studio.knit.ui.components.PagePadding
 import studio.knit.ui.components.PrimaryButton
 import studio.knit.ui.components.RowDivider
 import studio.knit.ui.components.SectionHeader
+import studio.knit.ui.components.GreetingCard
+import studio.knit.ui.components.greetingNow
+import studio.knit.ui.components.todayLine
 import studio.knit.ui.components.TextBtn
 import studio.knit.ui.components.pressable
 import studio.knit.ui.theme.Knit
@@ -72,6 +75,17 @@ fun HomeScreen(onSeeAll: () -> Unit) {
                 ) { PrimaryButton("New pattern", { creating = true }, icon = Icons.Plus) }
             }
             return@Page
+        }
+
+        item {
+            val last = knitting.firstOrNull()
+            val subtitle = todayLine(active, now)
+                ?: last?.let { "Pick up ${it.displayName} where you left off." }
+                ?: "What will you make today?"
+            GreetingCard(
+                greetingNow(), subtitle, Modifier.padding(horizontal = PagePadding).padding(top = 4.dp, bottom = 4.dp),
+                action = last?.let { p -> { PrimaryButton("Continue ${p.displayName}", { nav.knit(p.id) }, icon = Icons.Play) } },
+            )
         }
 
         if (knitting.isNotEmpty()) {

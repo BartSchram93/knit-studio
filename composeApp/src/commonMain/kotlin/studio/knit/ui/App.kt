@@ -14,6 +14,6 @@ import studio.knit.ui.theme.KnitTheme
 fun App(app: AppContainer) {
     val settings by app.settings.collectAsState()
     CompositionLocalProvider(LocalApp provides app) {
-        KnitTheme(settings.theme) { KnitNavHost() }
+        KnitTheme(settings.theme, settings.accent) { KnitNavHost() }
     }
 }

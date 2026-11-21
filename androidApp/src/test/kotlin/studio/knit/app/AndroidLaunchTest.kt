@@ -50,4 +50,12 @@ class AndroidLaunchTest {
         assertTrue(imported.pattern.name.endsWith("(imported)"))
         assertTrue(repo.integrityCheck().isEmpty())
     }
+
+    /** The heading font is bundled; without it the app could not draw its titles. */
+    @Test fun headingFontIsPackaged() {
+        val app = ApplicationProvider.getApplicationContext<KnitApplication>()
+        for (name in listOf("fraunces_semibold.ttf", "fraunces_bold.ttf")) {
+            app.assets.open("composeResources/studio.knit.ui.res/font/$name").use { assertTrue(it.readBytes().size > 10_000) }
+        }
+    }
 }

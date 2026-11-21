@@ -151,16 +151,28 @@ fun KnitScreen(patternId: String) {
 
     fun update(transform: (Progress) -> Progress) = editor.update { it.copy(progress = transform(it.progress ?: startProgress(it, nowMillis()))) }
     val timer = rememberKnitTimer(editor)
+    var celebration by remember { mutableStateOf<studio.knit.ui.components.Celebration?>(null) }
     fun step(delta: Int) {
         val before = pos.done
         timer.touch()
+        var after: Progress? = null
         update { pr ->
             val now = nowMillis()
             val next = pr.step(track, delta, now)
             // Rows actually moved (none past the end or below zero) go into today's log.
-            next.logRows(dayKey(now), (next.positions[track.id] ?: 0) - (pr.positions[track.id] ?: 0))
+            next.logRows(dayKey(now), (next.positions[track.id] ?: 0) - (pr.positions[track.id] ?: 0)).also { after = it }
         }
-        haptic(delta > 0 && !track.repeats && before + delta >= track.length)
+        val finishedPart = delta > 0 && !track.repeats && before < track.length && before + delta >= track.length
+        haptic(finishedPart)
+        if (finishedPart) {
+            // The whole pattern is done when every part with an end is finished.
+            val all = tracks.filter { !it.repeats }.all { it.position(after).finished }
+            celebration = if (all) {
+                studio.knit.ui.components.Celebration("${p.displayName} is finished!", "Every row is knitted. Well done!", nowMillis())
+            } else {
+                studio.knit.ui.components.Celebration("${track.title} done!", "All ${track.length} ${if (track.section?.construction == Construction.ROUND) "rounds" else "rows"} knitted.", nowMillis())
+            }
+        }
     }
 
     // The row to knit, on the lock screen while Knit mode is open.
@@ -270,6 +282,7 @@ fun KnitScreen(patternId: String) {
         }
     }
 
+    celebration?.let { c -> studio.knit.ui.components.CelebrationOverlay(c) { celebration = null } }
     }
     if (showNotes) NotesSheet(progress, pos, track, ::update) { showNotes = false }
     if (showSetup) SetupSheet(p, progress, ::update) { showSetup = false }
