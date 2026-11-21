@@ -44,14 +44,14 @@ struct KnitLiveActivity: Widget {
 }
 
 /// "Row 12 of 80 (WS)" → "ROW 12/80".
-private func badge(_ row: String) -> String {
+private func rowBadge(_ row: String) -> String {
     let parts = row.split(separator: " ")
     guard parts.count >= 4, parts[2] == "of" else { return row.uppercased() }
     return "\(parts[0].uppercased()) \(parts[1])/\(parts[3])"
 }
 
 /// "Row 12 of 80 (WS)" → "WS".
-private func side(_ row: String) -> String? {
+private func rowSide(_ row: String) -> String? {
     if row.hasSuffix("(RS)") { return "RS" }
     if row.hasSuffix("(WS)") { return "WS" }
     return nil
@@ -68,11 +68,11 @@ struct LockScreenView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                Text(badge(context.state.row))
+                Text(rowBadge(context.state.row))
                     .font(.caption.weight(.bold)).foregroundStyle(.white)
                     .padding(.horizontal, 9).padding(.vertical, 3)
                     .background(Capsule().fill(accent))
-                if let side = side(context.state.row) {
+                if let side = rowSide(context.state.row) {
                     Text(side).font(.subheadline.weight(.bold))
                 }
                 Spacer()
