@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- **Dates of a project can be set**: *Created*, *Started knitting* and *Finished on* in a pattern's
+  Status, with a calendar; a project knitted before the app can be marked *Finished*.
 - **Order of parts**: in Knit mode, touch and hold a section or chart at the top and drag it to
   change the knitting order (or ⋯ › *Order of parts*). The order is saved with the pattern.
 - **Stats per day**: numbers above the bars, tap a day for its rows and time, and a "Per day" list.

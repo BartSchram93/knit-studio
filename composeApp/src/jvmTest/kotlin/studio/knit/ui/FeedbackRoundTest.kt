@@ -73,4 +73,20 @@ class FeedbackRoundTest {
         assertShown("12 rows")
         shot("82-stats-per-day")
     }
+
+    @Test fun anOldProjectCanBeMarkedFinishedWithItsDates() = knitUiTest(seed = { it.create(Pattern(id = "old", name = "Dekentje")) }) { env ->
+        tap("Patterns"); tap("Dekentje")
+        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Finished"))
+        assertShown("Not started")
+        tap("Finished")
+        eventually {
+            runBlocking { env.app.flushAllAndWait() }
+            val pr = runBlocking { env.repo.patterns.first() }.single().progress!!
+            assertEquals(true, pr.finishedAt != null && pr.startedAt <= pr.finishedAt!!)
+        }
+        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Finished on"))
+        tap("Finished on")
+        waitForIdle()
+        shot("83-finished-date-picker")
+    }
 }

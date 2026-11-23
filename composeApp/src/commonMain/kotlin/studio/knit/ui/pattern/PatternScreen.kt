@@ -295,7 +295,22 @@ private fun LazyListScope.overviewTab(
         Group {
             SwitchRow("Draft", p.draft, { v -> editor.update { it.copy(draft = v) } }, "Turn off when the design is finished")
             RowDivider()
-            ListRow("Created", value = formatDate(p.createdAt, now))
+            // Dates can be set by hand, e.g. for a project knitted before the app.
+            studio.knit.ui.components.DateRow("Created", p.createdAt, { d -> editor.update { it.copy(createdAt = d) } })
+            RowDivider()
+            studio.knit.ui.components.DateRow(
+                "Started knitting", p.progress?.startedAt,
+                { d -> editor.update { pt -> pt.withStarted(d) } },
+                emptyText = "Not started",
+            )
+            RowDivider()
+            SwitchRow("Finished", p.progress?.finishedAt != null, { on ->
+                editor.update { pt -> if (on) pt.withFinished(nowMillis()) else pt.copy(progress = pt.progress?.copy(finishedAt = null)) }
+            }, "Mark a project as done, also one knitted before you had the app")
+            p.progress?.finishedAt?.let { f ->
+                RowDivider()
+                studio.knit.ui.components.DateRow("Finished on", f, { d -> editor.update { pt -> pt.withFinished(d) } })
+            }
             RowDivider()
             ListRow("Last changed", value = formatDate(p.updatedAt, now))
         }
@@ -491,4 +506,18 @@ fun formatSize(bytes: Long): String = when {
     bytes >= 1_000_000 -> "${(bytes / 100_000) / 10.0} MB"
     bytes >= 1_000 -> "${bytes / 1_000} KB"
     else -> "$bytes bytes"
+}
+
+
+/** Sets when knitting started; creates the progress record if there is none yet. */
+private fun Pattern.withStarted(at: Long): Pattern {
+    val pr = progress ?: studio.knit.companion.startProgress(this, at)
+    // A project cannot be finished before it started.
+    return copy(progress = pr.copy(startedAt = at, finishedAt = pr.finishedAt?.let { maxOf(it, at) }))
+}
+
+/** Marks the project finished on [at] (moving the start back if it would come after). */
+private fun Pattern.withFinished(at: Long): Pattern {
+    val pr = progress ?: studio.knit.companion.startProgress(this, at)
+    return copy(progress = pr.copy(finishedAt = at, startedAt = minOf(pr.startedAt, at)))
 }
