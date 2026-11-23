@@ -11,6 +11,13 @@ import kotlinx.datetime.minus
 import studio.knit.model.DayLog
 import studio.knit.stats.dayKey
 import studio.knit.util.nowMillis
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.performSemanticsAction
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -42,8 +49,13 @@ class StatsUiTest {
         assertShown("days in a row")
         shot("43-stats-overview")
         // Per project: the pattern's own page shows its stats at the top.
-        tap("Feather & fan lace")
-        assertShown("THIS PROJECT")
+        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Feather & fan lace"))
+        // Activate the row itself rather than touching a point on screen: after scrolling, the row
+        // can sit right under the top bar on some screen sizes, and a touch there hits the bar.
+        onAllNodesWithText("Feather & fan lace").onFirst().performSemanticsAction(SemanticsActions.OnClick)
+        waitForIdle()
+        // The pattern is loaded from the database on another thread; wait for it.
+        eventually { assertShown("THIS PROJECT") }
         shot("44-stats-per-project")
     }
 }

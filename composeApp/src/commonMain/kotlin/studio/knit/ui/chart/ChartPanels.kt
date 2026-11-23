@@ -85,7 +85,8 @@ fun ChartPanels(
         val cellPx = with(density) { cell.toPx() }
         Column {
             if (onPerPanelChange != null) PanelWidthControl(perPanel, per, chart.cols, onPerPanelChange)
-            for (stitches in panelRanges(chart.cols, per)) {
+            // Built up from the bottom, like the knitting: stitch 1 is in the lowest panel.
+            for (stitches in panelRanges(chart.cols, per).asReversed()) {
                 val cols = chart.columnsFor(stitches)
                 if (chart.cols > per) {
                     Text(

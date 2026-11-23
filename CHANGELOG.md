@@ -3,6 +3,12 @@
 ## Unreleased
 
 ### Added
+- **Dates of a project can be set**: *Created*, *Started knitting* and *Finished on* in a pattern's
+  Status, with a calendar; a project knitted before the app can be marked *Finished*.
+- **Order of parts**: in Knit mode, touch and hold a section or chart at the top and drag it to
+  change the knitting order (or ⋯ › *Order of parts*). The order is saved with the pattern.
+- **Stats per day**: numbers above the bars, tap a day for its rows and time, and a "Per day" list.
+- Wide charts in panels now build up from the bottom (stitch 1 in the lowest panel), like the knitting.
 - **Achievements & levels**: 37 achievements in 7 categories (rows & stitches, time, keeping at it,
   projects, techniques, making & exploring, hidden), most with bronze/silver/gold tiers; hidden ones
   show a hint until found. A knitting level (1–40) with titles, a "next goal" and streak on the home

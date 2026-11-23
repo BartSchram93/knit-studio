@@ -1,5 +1,7 @@
 package studio.knit.ui.companion
 
+import androidx.compose.ui.graphics.graphicsLayer
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -51,6 +53,7 @@ import studio.knit.companion.bump
 import studio.knit.companion.isComplete
 import studio.knit.companion.overallProgress
 import studio.knit.companion.position
+import studio.knit.companion.movePart
 import studio.knit.companion.setPosition
 import studio.knit.companion.startProgress
 import studio.knit.companion.step
@@ -127,7 +130,7 @@ fun KnitScreen(patternId: String) {
     // Starting to knit creates the progress record.
     LaunchedEffect(p.id) { if (p.progress == null) editor.update { it.copy(progress = startProgress(it, nowMillis())) } }
     val progress = p.progress ?: startProgress(p, nowMillis())
-    val tracks = remember(p.sections, p.charts, progress.sizeIndex, library) { tracksOf(p, progress.sizeIndex, library) }
+    val tracks = remember(p.sections, p.charts, p.partOrder, progress.sizeIndex, library) { tracksOf(p, progress.sizeIndex, library) }
     KeepScreenOn(settings.keepScreenOn)
 
     var showNotes by remember { mutableStateOf(false) }
@@ -152,6 +155,7 @@ fun KnitScreen(patternId: String) {
 
     fun update(transform: (Progress) -> Progress) = editor.update { it.copy(progress = transform(it.progress ?: startProgress(it, nowMillis()))) }
     val timer = rememberKnitTimer(editor)
+    var reordering by remember { mutableStateOf(false) }
     var celebration by remember { mutableStateOf<studio.knit.ui.components.Celebration?>(null) }
     fun step(delta: Int) {
         val before = pos.done
@@ -195,6 +199,7 @@ fun KnitScreen(patternId: String) {
             MenuButton(listOfNotNull(
                 MenuItem("Go to row…", Icons.Rows) { jumping = true },
                 MenuItem("Size & options", Icons.Settings) { showSetup = true },
+                if (tracks.size > 1) MenuItem("Order of parts", Icons.Sort) { reordering = true } else null,
                 p.files.firstOrNull { it.mime == "application/pdf" }?.let { pdf -> MenuItem("Open PDF", Icons.Book) { nav.openPdf(p.id, pdf.id) } },
                 MenuItem("Open pattern", Icons.Document) { nav.openPattern(p.id) },
                 MenuItem("Start over", Icons.Undo, destructive = true) { restarting = true },
@@ -203,12 +208,16 @@ fun KnitScreen(patternId: String) {
     ) {
         // Which part is being worked.
         if (tracks.size > 1) {
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = PagePadding, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (t in tracks) {
-                    val done = !t.repeats && t.position(progress).finished
-                    studio.knit.ui.components.Chip(t.title, t.id == track.id, { update { it.copy(activeTrackId = t.id) } },
-                        leading = if (done) ({ KIcon(Icons.Check, if (t.id == track.id) Knit.colors.onAccent else Knit.colors.success, 15.dp) }) else null)
-                }
+            // Touch and hold a part, then drag it to change the knitting order.
+            studio.knit.ui.components.ReorderableChipRow(
+                tracks, key = { it.id },
+                onMove = { from, to -> editor.update { it.movePart(tracks, from, to) }; haptic(false) },
+                onDragStart = { haptic(true) },
+                modifier = Modifier.padding(horizontal = PagePadding, vertical = 10.dp),
+            ) { t, _ ->
+                val done = !t.repeats && t.position(progress).finished
+                studio.knit.ui.components.Chip(t.title, t.id == track.id, { update { it.copy(activeTrackId = t.id) } },
+                    leading = if (done) ({ KIcon(Icons.Check, if (t.id == track.id) Knit.colors.onAccent else Knit.colors.success, 15.dp) }) else null)
             }
         } else Spacer(Modifier.height(10.dp))
 
@@ -291,6 +300,7 @@ fun KnitScreen(patternId: String) {
 
     celebration?.let { c -> studio.knit.ui.components.CelebrationOverlay(c) { celebration = null } }
     }
+    if (reordering) PartOrderSheet(tracks, { from, to -> editor.update { it.movePart(tracks, from, to) } }) { reordering = false }
     if (showNotes) NotesSheet(progress, pos, track, ::update) { showNotes = false }
     if (showSetup) SetupSheet(p, progress, ::update) { showSetup = false }
     editingCounter?.let { c ->
@@ -538,3 +548,28 @@ fun TodayLine(progress: Progress, timer: KnitTimer) {
 
 /** Charts wider than this are shown in panels in knitting mode. */
 private const val WIDE_CHART = 24
+
+
+/** The knitting order of the parts, with buttons to move each one (an alternative to dragging). */
+@Composable
+private fun PartOrderSheet(tracks: List<Track>, onMove: (Int, Int) -> Unit, onDismiss: () -> Unit) {
+    studio.knit.ui.components.Sheet("Order of parts", onDismiss) {
+        studio.knit.ui.components.SectionFooter("Knit mode goes through the parts in this order. You can also touch and hold a part at the top of Knit mode and drag it.")
+        studio.knit.ui.components.Group(Modifier.padding(top = 10.dp)) {
+            tracks.forEachIndexed { i, t ->
+                if (i > 0) studio.knit.ui.components.RowDivider()
+                studio.knit.ui.components.ListRow(
+                    t.title, subtitle = if (t.section != null) "Written rows" else "Chart",
+                    trailing = {
+                        Row {
+                            studio.knit.ui.components.IconBtn(Icons.ChevronDown, "Move ${t.title} down", { onMove(i, i + 1) }, enabled = i < tracks.size - 1, size = 20.dp)
+                            studio.knit.ui.components.IconBtn(Icons.ChevronDown, "Move ${t.title} up", { onMove(i, i - 1) }, enabled = i > 0, size = 20.dp,
+                                modifier = androidx.compose.ui.Modifier.graphicsLayer(rotationZ = 180f))
+                        }
+                    },
+                )
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+    }
+}

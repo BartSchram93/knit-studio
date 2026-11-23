@@ -37,6 +37,8 @@ suspend fun seedLibrary(repo: KnitRepository) {
 
 @OptIn(ExperimentalTestApi::class)
 fun ComposeUiTest.tap(text: String) {
+    // Screens load their data from the database on another thread: wait for the text to appear.
+    eventually(5_000) { onAllNodesWithText(text).onFirst().assertExists() }
     val node = onAllNodesWithText(text).onFirst()
     // Bring the node into view when it sits in a scrolling sheet or page.
     runCatching { node.performScrollTo() }
@@ -46,7 +48,10 @@ fun ComposeUiTest.tap(text: String) {
 }
 
 @OptIn(ExperimentalTestApi::class)
-fun ComposeUiTest.assertShown(text: String) { onAllNodesWithText(text, substring = true).onFirst().assertExists() }
+fun ComposeUiTest.assertShown(text: String) {
+    // Waits briefly for text that depends on data loaded in the background.
+    eventually(5_000) { onAllNodesWithText(text, substring = true).onFirst().assertExists() }
+}
 
 @OptIn(ExperimentalTestApi::class)
 class SmokeTest {

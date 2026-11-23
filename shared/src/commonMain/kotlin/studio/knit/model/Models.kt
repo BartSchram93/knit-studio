@@ -361,6 +361,11 @@ data class Pattern(
     val sections: List<Section> = emptyList(),
     /** Snapshot of the user-defined stitches this pattern uses, so the file is self-contained. */
     val customStitches: List<StitchDef> = emptyList(),
+    /**
+     * The order the parts (sections and charts) are knitted in, by id, as the knitter arranged
+     * them. Parts not listed keep their place after the listed ones. Empty: sections, then charts.
+     */
+    val partOrder: List<String> = emptyList(),
     val draft: Boolean = true,
     val favorite: Boolean = false,
     val archived: Boolean = false,

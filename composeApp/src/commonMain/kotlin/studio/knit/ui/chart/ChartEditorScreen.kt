@@ -155,7 +155,10 @@ fun ChartEditorScreen(patternId: String, chartId: String, focusRow: Int, focusCo
         },
     ) {
         if (panels) {
-            Column(Modifier.weight(1f).fillMaxWidth().background(Knit.colors.chartPaper).then(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())).padding(horizontal = 8.dp, vertical = 6.dp)) {
+            // Panels stack from the bottom up, so start at the bottom where stitch 1 is.
+            val panelScroll = androidx.compose.foundation.rememberScrollState()
+            LaunchedEffect(panelScroll.maxValue) { panelScroll.scrollTo(panelScroll.maxValue) }
+            Column(Modifier.weight(1f).fillMaxWidth().background(Knit.colors.chartPaper).then(Modifier.verticalScroll(panelScroll)).padding(horizontal = 8.dp, vertical = 6.dp)) {
                 ChartPanels(shown, library, Modifier.fillMaxWidth(), cellSize = 28.dp, perPanel = settings.panelStitches,
                     onPerPanelChange = { n -> app.scope.launch { app.repo.updateSettings { s -> s.copy(panelStitches = n) } } }) { r, c -> state.tap(chart, r to c) }
             }
