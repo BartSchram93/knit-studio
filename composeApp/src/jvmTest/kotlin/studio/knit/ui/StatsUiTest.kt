@@ -11,6 +11,9 @@ import kotlinx.datetime.minus
 import studio.knit.model.DayLog
 import studio.knit.stats.dayKey
 import studio.knit.util.nowMillis
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -42,6 +45,7 @@ class StatsUiTest {
         assertShown("days in a row")
         shot("43-stats-overview")
         // Per project: the pattern's own page shows its stats at the top.
+        onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Feather & fan lace"))
         tap("Feather & fan lace")
         assertShown("THIS PROJECT")
         shot("44-stats-per-project")

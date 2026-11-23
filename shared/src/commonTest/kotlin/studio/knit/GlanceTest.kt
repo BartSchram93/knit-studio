@@ -6,6 +6,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import studio.knit.companion.knitGlance
 import studio.knit.companion.stepKnitting
+import studio.knit.companion.movePart
 import studio.knit.model.Pattern
 import studio.knit.model.SizedInt
 
@@ -94,4 +95,24 @@ class RenameStitchTest {
         val sneaky = studio.knit.stitch.StitchLibrary(listOf(original.copy(abbr = "x", consumes = 9, builtIn = false)))
         assertEquals(2, sneaky["skpo"]!!.consumes)
     }
+}
+
+class PartOrderTest {
+    @Test fun partsCanBeReordered() {
+        val chart = studio.knit.model.Chart(id = "c1", name = "Chart 1", cols = 2, rows = 1, cells = List(2) { studio.knit.model.Cell("k") })
+        val a = section("Knit.", castOn = SizedInt(2)).copy(id = "a", title = "Section 1")
+        val b = section("Knit.", castOn = SizedInt(2)).copy(id = "b", title = "Section 2")
+        var p = Pattern(id = "p", sections = listOf(a, b), charts = listOf(chart))
+        fun order() = studio.knit.companion.tracksOf(p, 0, lib).map { it.id }
+        assertEquals(listOf("a", "b", "c1"), order())
+        // Chart 1 between Section 1 and Section 2.
+        p = p.movePartFor(2, 1)
+        assertEquals(listOf("a", "c1", "b"), order())
+        // A part added later comes after the arranged ones.
+        p = p.copy(sections = p.sections + section("Purl.", castOn = SizedInt(2)).copy(id = "d", title = "Section 3"))
+        assertEquals(listOf("a", "c1", "b", "d"), order())
+    }
+
+    private fun Pattern.movePartFor(from: Int, to: Int): Pattern =
+        movePart(studio.knit.companion.tracksOf(this, 0, lib), from, to)
 }

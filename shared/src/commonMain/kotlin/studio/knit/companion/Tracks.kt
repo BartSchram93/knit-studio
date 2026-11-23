@@ -44,7 +44,19 @@ fun tracksOf(pattern: Pattern, sizeIndex: Int, library: StitchLibrary): List<Tra
         if (c.id in linked || c.cells.size != c.cols * c.rows) continue
         out += Track(c.id, c.name.ifBlank { "Chart" }, chart = c)
     }
-    return out
+    if (pattern.partOrder.isEmpty()) return out
+    // The knitter's own order; parts added later follow in their usual order.
+    val rank = pattern.partOrder.withIndex().associate { it.value to it.index }
+    return out.sortedBy { rank[it.id] ?: Int.MAX_VALUE }
+}
+
+/** Moves the part at [from] to [to] in the knitting order and returns the pattern to save. */
+fun Pattern.movePart(tracks: List<Track>, from: Int, to: Int): Pattern {
+    if (from == to || from !in tracks.indices || to !in tracks.indices) return this
+    val ids = tracks.map { it.id }.toMutableList()
+    val moved = ids.removeAt(from)
+    ids.add(to, moved)
+    return copy(partOrder = ids)
 }
 
 /** Where the knitter is within one track. */

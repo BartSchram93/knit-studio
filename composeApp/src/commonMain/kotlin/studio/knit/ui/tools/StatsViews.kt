@@ -46,6 +46,10 @@ import studio.knit.ui.components.SectionHeader
 import studio.knit.ui.components.Segmented
 import studio.knit.ui.theme.Knit
 import studio.knit.util.nowMillis
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 
 private val WEEKDAYS = listOf("M", "T", "W", "T", "F", "S", "S")
 
@@ -75,22 +79,44 @@ fun DayBars(points: List<DayPoint>, showTime: Boolean, modifier: Modifier = Modi
     val accent = Knit.colors.accent
     val muted = Knit.colors.accent.copy(alpha = 0.45f)
     val track = Knit.colors.fill
+    val labelColor = Knit.colors.secondaryLabel
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    // The day shown in full above the bars: tapped, or else the most recent day with knitting.
+    var picked by androidx.compose.runtime.remember(points) { androidx.compose.runtime.mutableStateOf<Int?>(null) }
+    val shown = picked ?: points.indexOfLast { it.rows > 0 || it.seconds >= 60 }.takeIf { it >= 0 }
     val description = points.joinToString(", ") { p ->
         "${p.day}: " + if (showTime) formatDuration(p.seconds) else "${p.rows} rows"
     }
     Column(modifier.padding(horizontal = PagePadding).clip(RoundedCornerShape(14.dp)).background(Knit.colors.surface).padding(14.dp)) {
-        Text(if (showTime) "Up to ${formatDuration((max * 60).toLong())} a day" else "Up to ${max.toInt()} rows a day",
-            style = Knit.type.footnote, color = Knit.colors.secondaryLabel)
-        Spacer(Modifier.height(8.dp))
-        Canvas(Modifier.fillMaxWidth().height(120.dp).semantics { contentDescription = description }) {
+        Text(
+            shown?.let { dayLine(points[it]) } ?: "No knitting in these days yet",
+            style = Knit.type.subhead.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = Knit.colors.label,
+        )
+        Text("Tap a day to see it", style = Knit.type.caption, color = Knit.colors.secondaryLabel)
+        Spacer(Modifier.height(10.dp))
+        Canvas(
+            Modifier.fillMaxWidth().height(136.dp).semantics { contentDescription = description }
+                .pointerInput(points) {
+                    detectTapGestures { pos -> picked = ((pos.x / size.width) * points.size).toInt().coerceIn(0, points.size - 1) }
+                },
+        ) {
             val n = values.size.coerceAtLeast(1)
             val gap = size.width / n * 0.28f
             val w = size.width / n - gap
+            val top = 18.dp.toPx() // room for the numbers above the bars
+            val chartH = size.height - top
+            val style = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, color = labelColor)
             values.forEachIndexed { i, v ->
                 val x = i * (w + gap) + gap / 2
-                drawRoundRect(track, Offset(x, 0f), Size(w, size.height), CornerRadius(w / 3, w / 3))
-                val h = if (v <= 0f) 0f else (v / max * size.height).coerceAtLeast(w / 2)
-                if (h > 0f) drawRoundRect(if (i == values.lastIndex) accent else muted, Offset(x, size.height - h), Size(w, h), CornerRadius(w / 3, w / 3))
+                drawRoundRect(track, Offset(x, top), Size(w, chartH), CornerRadius(w / 3, w / 3))
+                val h = if (v <= 0f) 0f else (v / max * chartH).coerceAtLeast(w / 2)
+                val selected = i == shown
+                if (h > 0f) drawRoundRect(if (selected) accent else muted, Offset(x, top + chartH - h), Size(w, h), CornerRadius(w / 3, w / 3))
+                if (v > 0f) {
+                    val text = if (showTime) shortDuration(points[i].seconds) else points[i].rows.toString()
+                    val layout = measurer.measure(text, style.copy(color = if (selected) accent else labelColor), maxLines = 1)
+                    drawText(layout, topLeft = Offset(x + (w - layout.size.width) / 2f, (top + chartH - h - layout.size.height - 2f).coerceAtLeast(0f)))
+                }
             }
         }
         Spacer(Modifier.height(4.dp))
@@ -98,6 +124,38 @@ fun DayBars(points: List<DayPoint>, showTime: Boolean, modifier: Modifier = Modi
             for (p in points) Text(
                 if (points.size <= 14) WEEKDAYS[p.day.dayOfWeek.ordinal] else "",
                 style = Knit.type.caption, color = Knit.colors.secondaryLabel, textAlign = TextAlign.Center, modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+private val DAY_NAMES = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+private val MONTHS_SHORT = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+/** "Saturday 21 Nov · 12 rows · 1 h 05 min". */
+fun dayLine(p: DayPoint): String =
+    "${DAY_NAMES[p.day.dayOfWeek.ordinal]} ${p.day.day} ${MONTHS_SHORT[p.day.month.ordinal]} · ${p.rows} ${if (p.rows == 1) "row" else "rows"}" +
+        if (p.seconds >= 60) " · ${formatDuration(p.seconds)}" else ""
+
+/** "45m", "1h05" — short enough to sit above a bar. */
+private fun shortDuration(seconds: Long): String {
+    val m = seconds / 60
+    return if (m < 60) "${m}m" else "${m / 60}h" + (m % 60).toString().padStart(2, '0')
+}
+
+/** Every knitting day in [points], newest first, with rows and time. */
+@Composable
+fun PerDayList(points: List<DayPoint>) {
+    val days = points.filter { it.rows > 0 || it.seconds >= 60 }.asReversed()
+    if (days.isEmpty()) return
+    SectionHeader("Per day")
+    Group {
+        days.forEachIndexed { i, p ->
+            if (i > 0) RowDivider()
+            ListRow(
+                "${DAY_NAMES[p.day.dayOfWeek.ordinal]} ${p.day.day} ${MONTHS_SHORT[p.day.month.ordinal]}",
+                value = "${p.rows} ${if (p.rows == 1) "row" else "rows"}",
+                subtitle = if (p.seconds >= 60) formatDuration(p.seconds) else "time not measured",
             )
         }
     }
@@ -118,6 +176,7 @@ fun StatsBlock(stats: Stats) {
     SectionHeader("Last 14 days")
     Segmented(listOf("Rows", "Time"), view, { view = it }, Modifier.padding(horizontal = PagePadding).padding(bottom = 10.dp).fillMaxWidth())
     DayBars(stats.recent, showTime = view == 1)
+    PerDayList(stats.recent)
     SectionFooter(
         "Time counts while the knitting or PDF screen is open, and pauses after 20 minutes without touching the screen." +
             (stats.firstDay?.let { " First knitted on $it." } ?: ""),
