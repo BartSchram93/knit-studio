@@ -47,7 +47,8 @@ class StatsUiTest {
         // Per project: the pattern's own page shows its stats at the top.
         onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Feather & fan lace"))
         tap("Feather & fan lace")
-        assertShown("THIS PROJECT")
+        // The pattern is loaded from the database on another thread; wait for it.
+        eventually { assertShown("THIS PROJECT") }
         shot("44-stats-per-project")
     }
 }
