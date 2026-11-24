@@ -169,4 +169,73 @@ class AchievementsTest {
         assertEquals(second.state, AchievementState.fromJson(second.state.toJson()))
         assertEquals(AchievementState(), AchievementState.fromJson("not json"))
     }
+
+    // --- Second round -------------------------------------------------------------------------
+
+    @Test fun purlsTwistedSlippedAndBobblesAreCounted() {
+        val chart = Chart(id = "c", cols = 4, rows = 1, cells = listOf(Cell("p"), Cell("ktbl"), Cell("sl1"), Cell("mb")))
+        val p = Pattern(id = "t", charts = listOf(chart), progress = knitted(positions = mapOf("c" to 3)))
+        val f = FactsBuilder.build(listOf(p), lib)
+        assertEquals(3, f.purls)
+        assertEquals(3, f.twisted)
+        assertEquals(3, f.slipped)
+        assertEquals(3, f.bobbles)
+        // A stitch marker is not a slipped stitch.
+        val written = section("K2, slm, p2.", castOn = SizedInt(4))
+        val w = FactsBuilder.build(listOf(Pattern(id = "w", sections = listOf(written), progress = knitted(positions = mapOf(written.id to 1)))), lib)
+        assertEquals(0, w.slipped)
+        assertEquals(2, w.purls)
+    }
+
+    @Test fun calendarAndClockFacts() {
+        var pr = Progress(startedAt = 0)
+        pr = pr.logRows("2026-11-20", 12, hour = 21)  // Friday evening
+            .logRows("2026-11-21", 4, hour = 12)     // Saturday lunch
+            .logRows("2026-11-22", 1, hour = 9)      // Sunday
+            .logRows("2028-02-29", 1, hour = 9)
+            .logRows("2026-10-31", 1, hour = 9)
+            .logRows("2027-01-01", 1, hour = 9)
+            .logRows("2027-02-14", 1, hour = 9)
+            .logRows("2026-12-06", 1, hour = 9)
+        val f = FactsBuilder.build(listOf(Pattern(id = "k", progress = pr)), lib)
+        assertEquals(12, f.fridayNightRows)
+        assertEquals(4, f.lunchRows)
+        assertEquals(12, f.maxRowsInHour)
+        assertEquals(1, f.fullWeekends)
+        assertEquals(6, f.monthsKnitted) // Oct 26, Nov 26, Dec 26, Jan 27, Feb 27, Feb 28
+        assertTrue(f.leapDay); assertTrue(f.halloween); assertTrue(f.newYear); assertTrue(f.valentine); assertTrue(f.sinterklaas)
+        val plain = FactsBuilder.build(listOf(Pattern(id = "q", progress = Progress(startedAt = 0).logRows("2026-11-18", 3, hour = 15))), lib)
+        assertFalse(plain.leapDay || plain.halloween || plain.newYear || plain.valentine || plain.sinterklaas)
+        assertEquals(0, plain.fridayNightRows); assertEquals(0, plain.fullWeekends)
+    }
+
+    @Test fun projectsPerCategoryWeekAndDay() {
+        val day = FactsBuilder.DAY_MS
+        fun done(id: String, c: Category, at: Long, knit: String) = Pattern(id = id, category = c, progress = knitted(knit to DayLog(rows = 3), finished = at))
+        val ps = listOf(
+            done("h1", Category.HAT, 10 * day, "2026-11-16"), done("h2", Category.HAT, 10 * day + 5, "2026-11-17"),
+            done("s1", Category.CARDIGAN, 40 * day, "2026-11-18"), done("b1", Category.BLANKET, 50 * day, "2026-11-30"),
+        )
+        val f = FactsBuilder.build(ps, lib)
+        assertEquals(2, f.finishedByCategory[Category.HAT])
+        assertEquals(3, f.maxProjectsInWeek) // 16–18 Nov is one week; 30 Nov the next
+        assertTrue(f.doubleFinish)
+        assertEquals(1, Achievements.tierOf(Achievements.byId("hats")!!, f))
+        assertEquals(1, Achievements.tierOf(Achievements.byId("sweaters")!!, f))
+        assertEquals(1, Achievements.tierOf(Achievements.byId("blankets")!!, f))
+        assertEquals(2, Achievements.tierOf(Achievements.byId("multitask")!!, f))
+    }
+
+    @Test fun badgeCollectorCountsOtherBadgesOnly() {
+        val badges = Achievements.byId("badges")!!
+        val f = KnitFacts(totalRows = 10_000, totalSeconds = 500 * 3600L, projectsFinished = 30, knitDays = 365, bestStreak = 30)
+        val others = Achievements.all.filter { it.id != "badges" }.sumOf { Achievements.tierOf(it, f) }
+        assertEquals(others.toLong(), badges.value(f))
+        assertTrue(Achievements.tierOf(badges, f) >= 1)
+    }
+
+    @Test fun moreThanSixtyAchievementsWithEnoughHiddenOnes() {
+        assertTrue(Achievements.all.size >= 60)
+        assertTrue(Achievements.all.count { it.hidden } >= 20)
+    }
 }

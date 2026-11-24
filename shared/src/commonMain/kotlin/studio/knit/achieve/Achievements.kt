@@ -3,6 +3,7 @@ package studio.knit.achieve
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.math.pow
+import studio.knit.model.Category
 
 /*
  * Achievements: encouragement, never pressure.
@@ -70,12 +71,14 @@ object Achievements {
             { "Knit ${formatCount(it)} stitches" }, { it.totalStitches }),
         AchievementDef("big-day", "Productive day", "⚡", AchievementCategory.ROWS, listOf(50, 100, 250),
             { "Knit $it rows in one day" }, { it.maxRowsInDay.toLong() }),
+        AchievementDef("fast", "Fast fingers", "💨", AchievementCategory.ROWS, listOf(10, 20, 40),
+            { "Knit $it rows within one hour of the clock" }, { it.maxRowsInHour.toLong() }),
 
         // --- Time -------------------------------------------------------------------------------
         AchievementDef("hours", "Hours of knitting", "⏳", AchievementCategory.TIME, listOf(1, 25, 100, 500),
             { "Knit for $it ${if (it == 1L) "hour" else "hours"}" }, { hours(it.totalSeconds) },
             reward = 2 to Reward.Accent("BERRY", "Berry colour")),
-        AchievementDef("session", "In the flow", "🌊", AchievementCategory.TIME, listOf(1, 2, 3),
+        AchievementDef("session", "In the flow", "🌊", AchievementCategory.TIME, listOf(1, 2, 3, 4),
             { "Knit for $it ${if (it == 1L) "hour" else "hours"} without a long break" }, { hours(it.longestSession) }),
 
         // --- Keeping at it ------------------------------------------------------------------------
@@ -84,6 +87,12 @@ object Achievements {
         AchievementDef("streak", "On a roll", "🔥", AchievementCategory.HABIT, listOf(3, 7, 30),
             { "Knit $it days in a row (one rest day a week is fine)" }, { it.bestStreak.toLong() },
             reward = 1 to Reward.Confetti("LEAVES", "Leaf confetti")),
+        AchievementDef("days", "Knitting days", "🗓", AchievementCategory.HABIT, listOf(30, 100, 365),
+            { "Knit on $it different days" }, { it.knitDays.toLong() }),
+        AchievementDef("months", "All year round", "🍂", AchievementCategory.HABIT, listOf(3, 6, 12),
+            { "Knit in $it different months" }, { it.monthsKnitted.toLong() }),
+        AchievementDef("weekends", "Weekend knitter", "☕", AchievementCategory.HABIT, listOf(4, 13, 52),
+            { "Knit on Saturday and Sunday of $it weekends" }, { it.fullWeekends.toLong() }),
 
         // --- Projects ---------------------------------------------------------------------------
         AchievementDef("finisher", "Finisher", "🏁", AchievementCategory.PROJECTS, listOf(1, 5, 15, 30),
@@ -98,6 +107,16 @@ object Achievements {
             { "Finish a project within 7 days of starting" }, { bool(it.quickFinish) }, format = { if (it > 0) "Done" else "Not yet" }),
         AchievementDef("long-haul", "Long haul", "🐢", AchievementCategory.PROJECTS, listOf(1),
             { "Finish a project that took more than 3 months" }, { bool(it.longHaulFinish) }, format = { if (it > 0) "Done" else "Not yet" }),
+        AchievementDef("hats", "Hat trick", "🎩", AchievementCategory.PROJECTS, listOf(1, 3, 10),
+            { if (it == 1L) "Finish a hat" else "Finish $it hats" }, { it.finished(Category.HAT) }),
+        AchievementDef("sweaters", "Sweater weather", "🧥", AchievementCategory.PROJECTS, listOf(1, 3, 10),
+            { if (it == 1L) "Finish a sweater or cardigan" else "Finish $it sweaters or cardigans" }, { it.finished(Category.SWEATER) + it.finished(Category.CARDIGAN) }),
+        AchievementDef("blankets", "Cosy blanket", "🛋", AchievementCategory.PROJECTS, listOf(1, 3),
+            { if (it == 1L) "Finish a blanket" else "Finish $it blankets" }, { it.finished(Category.BLANKET) }),
+        AchievementDef("shawls", "Wrapped up", "🧣", AchievementCategory.PROJECTS, listOf(1, 3, 10),
+            { if (it == 1L) "Finish a shawl or scarf" else "Finish $it shawls or scarves" }, { it.finished(Category.SHAWL) + it.finished(Category.SCARF) }),
+        AchievementDef("multitask", "Many on the needles", "🤹", AchievementCategory.PROJECTS, listOf(2, 3, 5),
+            { "Knit on $it different projects in one week" }, { it.maxProjectsInWeek.toLong() }),
 
         // --- Techniques -------------------------------------------------------------------------
         AchievementDef("cables", "Cable crossing", "🥨", AchievementCategory.TECHNIQUE, listOf(1, 100, 1_000),
@@ -111,6 +130,14 @@ object Achievements {
             { "Knit ${formatCount(it)} increases and ${formatCount(it)} decreases" }, { minOf(it.increases, it.decreases) }),
         AchievementDef("round", "In the round", "⭕", AchievementCategory.TECHNIQUE, listOf(1),
             { "Finish a project knitted in the round" }, { bool(it.roundFinished) }, format = { if (it > 0) "Done" else "Not yet" }),
+        AchievementDef("purls", "Purl power", "🫧", AchievementCategory.TECHNIQUE, listOf(1_000, 10_000, 100_000),
+            { "Knit ${formatCount(it)} purl stitches" }, { it.purls }),
+        AchievementDef("twisted", "Twisted", "🌀", AchievementCategory.TECHNIQUE, listOf(50, 500, 5_000),
+            { "Knit ${formatCount(it)} stitches through the back loop" }, { it.twisted }),
+        AchievementDef("slipped", "Slip and slide", "🛝", AchievementCategory.TECHNIQUE, listOf(50, 500, 5_000),
+            { "Slip ${formatCount(it)} stitches" }, { it.slipped }),
+        AchievementDef("bobbles", "Bobble head", "🫐", AchievementCategory.TECHNIQUE, listOf(1, 25, 250),
+            { if (it == 1L) "Make your first bobble" else "Make $it bobbles" }, { it.bobbles }),
 
         // --- Making & exploring -------------------------------------------------------------------
         AchievementDef("designer", "Designer", "✏️", AchievementCategory.MAKING, listOf(1, 10),
@@ -129,6 +156,18 @@ object Achievements {
             { "Add a photo of a yarn" }, { it.yarnPhotos.toLong() }),
         AchievementDef("needles", "Needle drawer", "🥢", AchievementCategory.MAKING, listOf(20),
             { "Keep $it needles in your stash" }, { it.needles.toLong() }),
+        AchievementDef("library", "Pattern library", "📚", AchievementCategory.MAKING, listOf(5, 20, 50),
+            { "Keep $it patterns in the app" }, { it.patterns.toLong() }),
+        AchievementDef("pdf-shelf", "Paper-free", "🗂", AchievementCategory.MAKING, listOf(1, 10),
+            { if (it == 1L) "Attach a PDF pattern" else "Attach $it PDF patterns" }, { it.pdfsAttached.toLong() }),
+        AchievementDef("gallery", "Show and tell", "🖼", AchievementCategory.MAKING, listOf(1, 10, 50),
+            { if (it == 1L) "Add a photo to a pattern" else "Add $it photos to patterns" }, { it.patternPhotos.toLong() }),
+        AchievementDef("notes", "Note taker", "🗒", AchievementCategory.MAKING, listOf(1, 10, 50),
+            { if (it == 1L) "Write a project note" else "Write $it project notes" }, { it.projectNotes.toLong() }),
+        AchievementDef("counters", "Counting on it", "🧮", AchievementCategory.MAKING, listOf(1, 5),
+            { if (it == 1L) "Use an extra counter" else "Use $it extra counters" }, { it.countersUsed.toLong() }),
+        AchievementDef("badges", "Badge collector", "🏅", AchievementCategory.MAKING, listOf(10, 25, 50, 100),
+            { "Earn $it badges (every tier counts)" }, { f -> badgesExcept("badges", f) }),
 
         // --- Hidden -----------------------------------------------------------------------------
         AchievementDef("night-owl", "Night owl", "🦉", AchievementCategory.HIDDEN, listOf(1),
@@ -156,12 +195,34 @@ object Achievements {
             { "Knit on World Wide Knit in Public Day (second Saturday of June)" }, { bool(it.knitInPublicDay) }, hidden = true, hint = "Out in the open"),
         AchievementDef("slow", "Slow knitting", "🐌", AchievementCategory.HIDDEN, listOf(1),
             { "Finish a project that took more than a year" }, { bool(it.slowFinish) }, hidden = true, hint = "Every stitch counts"),
+        AchievementDef("lunch", "Lunch break", "🥪", AchievementCategory.HIDDEN, listOf(10),
+            { "Knit 10 rows between noon and 1 pm" }, { it.lunchRows.toLong() }, hidden = true, hint = "A few rows with a sandwich"),
+        AchievementDef("friday", "Friday night in", "🍷", AchievementCategory.HIDDEN, listOf(10),
+            { "Knit 10 rows on a Friday evening" }, { it.fridayNightRows.toLong() }, hidden = true, hint = "Who needs to go out?"),
+        AchievementDef("new-year", "Knit in the new year", "🎆", AchievementCategory.HIDDEN, listOf(1),
+            { "Knit on 31 December or 1 January" }, { bool(it.newYear) }, hidden = true, hint = "Out with the old"),
+        AchievementDef("valentine", "Made with love", "💝", AchievementCategory.HIDDEN, listOf(1),
+            { "Knit on Valentine's Day" }, { bool(it.valentine) }, hidden = true, hint = "Roses are red…"),
+        AchievementDef("halloween", "Spooky stitches", "🎃", AchievementCategory.HIDDEN, listOf(1),
+            { "Knit on Halloween" }, { bool(it.halloween) }, hidden = true, hint = "Trick or treat"),
+        AchievementDef("leap-day", "Leap of yarn", "🦘", AchievementCategory.HIDDEN, listOf(1),
+            { "Knit on 29 February" }, { bool(it.leapDay) }, hidden = true, hint = "Only once every four years"),
+        AchievementDef("sinterklaas", "Sinterklaas", "🎁", AchievementCategory.HIDDEN, listOf(1),
+            { "Knit on 5 or 6 December" }, { bool(it.sinterklaas) }, hidden = true, hint = "Something in your shoe"),
+        AchievementDef("tink", "Tink tink", "↩️", AchievementCategory.HIDDEN, listOf(100),
+            { "Step back 100 rows in total (tink is knit backwards)" }, { it.rowsUndone.toLong() }, hidden = true, hint = "Knitting, but backwards"),
+        AchievementDef("double", "Double finish", "✌️", AchievementCategory.HIDDEN, listOf(1),
+            { "Finish two projects on the same day" }, { bool(it.doubleFinish) }, hidden = true, hint = "Two at once"),
     )
 
     private val WARDROBE = listOf(
         studio.knit.model.Category.HAT, studio.knit.model.Category.SCARF, studio.knit.model.Category.SOCKS,
         studio.knit.model.Category.SWEATER, studio.knit.model.Category.GLOVES,
     )
+
+    /** Tiers earned on every achievement but [except], for "Badge collector". */
+    private fun badgesExcept(except: String, facts: KnitFacts): Long =
+        all.filter { it.id != except }.sumOf { tierOf(it, facts).toLong() }
 
     fun byId(id: String): AchievementDef? = all.firstOrNull { it.id == id }
 
@@ -267,3 +328,6 @@ fun checkAchievements(state: AchievementState, facts: KnitFacts, now: Long): Ach
     if (!state.initialized) return AchievementCheck(next, emptyList(), null)
     return AchievementCheck(next, fresh, level.takeIf { it > state.levelSeen })
 }
+
+/** Projects of [category] finished. */
+fun KnitFacts.finished(category: Category): Long = (finishedByCategory[category] ?: 0).toLong()

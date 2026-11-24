@@ -288,14 +288,20 @@ private fun YarnList(p: Pattern, editor: PatternEditor) {
                 if (stash.isEmpty()) { isNew = true; editing = Yarn(id = newId(), label = if (p.yarns.isEmpty()) "MC" else "") } else menu = true
             }
             Menu(menu, { menu = false }, listOf(MenuItem("New yarn", Icons.Plus) { isNew = true; editing = Yarn(id = newId(), label = if (p.yarns.isEmpty()) "MC" else "") }) +
-                stash.map { s -> MenuItem("From stash: ${s.displayName}") { editor.update { it.copy(yarns = it.yarns + s.copy(id = newId(), photoId = null)) } } })
+                studio.knit.stash.groupYarnsByBrand(stash).flatMap { it.yarns }.map { s ->
+                    // Skeins in the stash are what she owns, not what this pattern needs: she fills that in.
+                    MenuItem("From stash: ${s.displayName}" + (s.color.trim().takeIf { it.isNotEmpty() }?.let { " · $it" } ?: "")) {
+                        isNew = true; editing = studio.knit.stash.yarnForPattern(s, newId()).copy(label = if (p.yarns.isEmpty()) "MC" else "")
+                    }
+                })
         }
     }
     editing?.let { y ->
         YarnSheet(y, isNew,
             onSave = { saved -> editor.update { pat -> pat.copy(yarns = if (pat.yarns.any { it.id == saved.id }) pat.yarns.map { if (it.id == saved.id) saved else it } else pat.yarns + saved) } },
             onDelete = if (isNew) null else ({ editor.update { pat -> pat.copy(yarns = pat.yarns.filterNot { it.id == y.id }) } }),
-            onDismiss = { editing = null })
+            onDismiss = { editing = null },
+            brands = studio.knit.stash.knownYarnBrands(stash + p.yarns), stash = stash)
     }
 }
 
