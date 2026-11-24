@@ -64,6 +64,35 @@ data class KnitFacts(
     val comeback: Boolean = false,
     val accentsTried: Int = 0,
     val firstDay: LocalDate? = null,
+    // --- Added in the second round of achievements ---------------------------------------------
+    val purls: Long = 0,
+    val twisted: Long = 0,
+    val slipped: Long = 0,
+    val bobbles: Long = 0,
+    val finishedByCategory: Map<Category, Int> = emptyMap(),
+    /** Most different projects knitted on in one week (Mon–Sun). */
+    val maxProjectsInWeek: Int = 0,
+    /** Calendar months (of any year) with knitting. */
+    val monthsKnitted: Int = 0,
+    /** Weekends with knitting on both Saturday and Sunday. */
+    val fullWeekends: Int = 0,
+    /** Most rows in one hour of the clock. */
+    val maxRowsInHour: Int = 0,
+    val lunchRows: Int = 0,
+    val fridayNightRows: Int = 0,
+    val newYear: Boolean = false,
+    val valentine: Boolean = false,
+    val halloween: Boolean = false,
+    val leapDay: Boolean = false,
+    val sinterklaas: Boolean = false,
+    val rowsUndone: Int = 0,
+    val patterns: Int = 0,
+    val pdfsAttached: Int = 0,
+    val patternPhotos: Int = 0,
+    val projectNotes: Int = 0,
+    val countersUsed: Int = 0,
+    /** Two projects finished on the same day. */
+    val doubleFinish: Boolean = false,
 )
 
 object FactsBuilder {
@@ -77,13 +106,21 @@ object FactsBuilder {
         val secondsByDay = HashMap<LocalDate, Long>()
         var night = 0
         var early = 0
+        var lunch = 0
+        var friday = 0
+        var maxInHour = 0
+        val projectsByWeek = HashMap<Long, MutableSet<String>>()
         for (p in patterns) for ((key, log) in p.progress?.days.orEmpty()) {
             val day = runCatching { LocalDate.parse(key) }.getOrNull() ?: continue
             rowsByDay[day] = (rowsByDay[day] ?: 0) + log.rows
             secondsByDay[day] = (secondsByDay[day] ?: 0) + log.seconds
+            if (log.rows > 0 || log.seconds >= 60) projectsByWeek.getOrPut(weekOf(day)) { HashSet() } += p.id
             for ((h, n) in log.hours) {
                 if (h in 0..3) night += n
                 if (h in 4..6) early += n
+                if (h == 12) lunch += n
+                if (h in 20..23 && day.dayOfWeek == DayOfWeek.FRIDAY) friday += n
+                maxInHour = maxOf(maxInHour, n)
             }
         }
         val knitDays = (rowsByDay.keys + secondsByDay.keys).filter { (rowsByDay[it] ?: 0) > 0 || (secondsByDay[it] ?: 0) >= 60 }.distinct().sorted()
@@ -92,6 +129,16 @@ object FactsBuilder {
         // --- Rows and stitches worked, and the techniques in them ---------------------------
         var stitches = 0L; var cables = 0L; var yos = 0L; var inc = 0L; var dec = 0L; var colours = 0
         var parts = 0
+        var purls = 0L; var twisted = 0L; var slipped = 0L; var bobbles = 0L
+        fun stitchKind(id: String, times: Long) {
+            when (id) {
+                "p" -> purls += times
+                "ktbl" -> twisted += times
+                "ptbl" -> { twisted += times; purls += times }
+                "mb", "bobble" -> bobbles += times
+                else -> if (id.startsWith("sl") && id != "slm") slipped += times
+            }
+        }
         for (p in patterns) {
             val progress = p.progress ?: continue
             val tracks = tracksOf(p, progress.sizeIndex, library)
@@ -104,7 +151,10 @@ object FactsBuilder {
                     for (row in eval.rows.take(done)) {
                         stitches += row.eval.produced ?: 0
                         val worked = row.eval.stitches ?: continue
-                        for (w in worked) countTechnique(w.def.id, w.def.category) { kind -> when (kind) { 0 -> cables++; 1 -> yos++; 2 -> inc++; else -> dec++ } }
+                        for (w in worked) {
+                            countTechnique(w.def.id, w.def.category) { kind -> when (kind) { 0 -> cables++; 1 -> yos++; 2 -> inc++; else -> dec++ } }
+                            stitchKind(w.def.id, 1)
+                        }
                         colours = maxOf(colours, worked.mapNotNullTo(HashSet()) { it.color }.size)
                     }
                 } else {
@@ -122,6 +172,7 @@ object FactsBuilder {
                             rowStitches += def.produces
                             if (cell.color >= 0) rowColours += cell.color
                             countTechnique(def.id, def.category) { kind -> when (kind) { 0 -> rc++; 1 -> ry++; 2 -> ri++; else -> rd++ } }
+                            stitchKind(def.id, times.toLong())
                         }
                         stitches += rowStitches.toLong() * times
                         cables += rc.toLong() * times; yos += ry.toLong() * times; inc += ri.toLong() * times; dec += rd.toLong() * times
@@ -181,6 +232,26 @@ object FactsBuilder {
             comeback = gaps.any { it >= 30 },
             accentsTried = accentsTried,
             firstDay = first,
+            purls = purls, twisted = twisted, slipped = slipped, bobbles = bobbles,
+            finishedByCategory = finished.groupingBy { it.category }.eachCount(),
+            maxProjectsInWeek = projectsByWeek.values.maxOfOrNull { it.size } ?: 0,
+            monthsKnitted = knitDays.mapTo(HashSet()) { it.year * 12 + it.month.ordinal }.size,
+            fullWeekends = knitDays.toSet().let { set -> set.count { it.dayOfWeek == DayOfWeek.SATURDAY && LocalDate.fromEpochDays(it.toEpochDays() + 1) in set } },
+            maxRowsInHour = maxInHour,
+            lunchRows = lunch,
+            fridayNightRows = friday,
+            newYear = knitDays.any { (it.month.ordinal == 11 && it.day == 31) || (it.month.ordinal == 0 && it.day == 1) },
+            valentine = knitDays.any { it.month.ordinal == 1 && it.day == 14 },
+            halloween = knitDays.any { it.month.ordinal == 9 && it.day == 31 },
+            leapDay = knitDays.any { it.month.ordinal == 1 && it.day == 29 },
+            sinterklaas = knitDays.any { it.month.ordinal == 11 && it.day in 5..6 },
+            rowsUndone = patterns.sumOf { it.progress?.undone ?: 0 },
+            patterns = patterns.size,
+            pdfsAttached = patterns.sumOf { p -> p.files.count { it.mime == "application/pdf" || it.name.endsWith(".pdf", ignoreCase = true) } },
+            patternPhotos = patterns.sumOf { it.imageIds.size },
+            projectNotes = patterns.sumOf { it.progress?.notes?.size ?: 0 },
+            countersUsed = patterns.sumOf { p -> p.progress?.counters?.count { it.value > 0 } ?: 0 },
+            doubleFinish = finished.groupBy { it.progress!!.finishedAt!! / DAY_MS }.any { it.value.size >= 2 },
         )
     }
 

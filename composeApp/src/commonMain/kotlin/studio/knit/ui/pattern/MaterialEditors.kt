@@ -93,6 +93,10 @@ fun YarnSheet(
     initial: Yarn, isNew: Boolean, onSave: (Yarn) -> Unit, onDelete: (() -> Unit)?, onDismiss: () -> Unit,
     /** Offer a photo of the yarn (used in the stash). */
     allowPhoto: Boolean = false,
+    /** Brands already in use, offered as one-tap choices. */
+    brands: List<String> = emptyList(),
+    /** In a pattern: the stash, to show how many skeins of this yarn she owns. Null in the stash itself. */
+    stash: List<Yarn>? = null,
 ) {
     val settings by LocalApp.current.settings.collectAsState()
     val units = unitFormat()
@@ -142,6 +146,11 @@ fun YarnSheet(
                 BoundField(y.brand, { y = y.copy(brand = it) }, Modifier.weight(1f), "Brand", "e.g. Holst", capitalization = KeyboardCapitalization.Words)
                 BoundField(y.name, { y = y.copy(name = it) }, Modifier.weight(1f), "Yarn", "e.g. Supersoft", capitalization = KeyboardCapitalization.Words)
             }
+            if (brands.isNotEmpty()) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (b in brands) studio.knit.ui.components.Chip(b, y.brand.trim().equals(b, ignoreCase = true), { y = y.copy(brand = b) })
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 BoundField(y.label, { y = y.copy(label = it) }, Modifier.weight(0.6f), "Used as", "MC, A, B…", capitalization = KeyboardCapitalization.Characters)
                 BoundField(y.color, { y = y.copy(color = it) }, Modifier.weight(1f), "Colour name", "e.g. Teal")
@@ -159,9 +168,16 @@ fun YarnSheet(
                 BoundNumberField(y.gramsPerSkein?.let { units.weightValue(it) }, { v -> y = y.copy(gramsPerSkein = v?.takeIf { it > 0 }?.let { units.toGrams(it) }) }, Modifier.weight(1f), "Weight per skein", units.weightUnit)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                BoundNumberField(y.skeins, { v -> y = y.copy(skeins = v?.takeIf { it > 0 }) }, Modifier.weight(1f), "Skeins")
+                BoundNumberField(y.skeins, { v -> y = y.copy(skeins = v?.takeIf { it > 0 }) }, Modifier.weight(1f), if (stash != null) "Skeins needed" else "Skeins in stash")
                 BoundField(y.dyeLot, { y = y.copy(dyeLot = it) }, Modifier.weight(1f), "Dye lot", capitalization = KeyboardCapitalization.Characters)
             }
+        }
+        if (stash != null) {
+            val owned = studio.knit.stash.ownedSkeins(y, stash)
+            SectionFooter(
+                if (owned != null) "You have ${owned.pretty()} ${if (owned == 1.0) "skein" else "skeins"} of this yarn in your stash. Skeins here is what this pattern needs."
+                else "Skeins here is what this pattern needs.",
+            )
         }
         SectionHeader("Colour")
         ColorGrid(y.colorArgb, { y = y.copy(colorArgb = it) }, Modifier.padding(horizontal = PagePadding + 4.dp))

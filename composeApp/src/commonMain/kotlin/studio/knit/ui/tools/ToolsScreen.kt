@@ -37,6 +37,8 @@ import studio.knit.calc.pretty
 import studio.knit.model.Gauge
 import studio.knit.model.Needle
 import studio.knit.model.Yarn
+import studio.knit.stash.groupYarnsByBrand
+import studio.knit.stash.knownYarnBrands
 import studio.knit.ui.app.LocalApp
 import studio.knit.ui.app.LocalNav
 import studio.knit.ui.app.unitFormat
@@ -429,12 +431,33 @@ private fun StashScreen() {
 
     Page("Stash", onBack = nav::back, backLabel = "Tools", largeTitle = false) {
         item { SectionHeader("Yarn") }
+        // Yarn in brand folders, like the needles.
+        val yarnGroups = groupYarnsByBrand(yarns)
+        items(yarnGroups.size, key = { "yarn-brand-" + yarnGroups[it].key }) { i ->
+            val g = yarnGroups[i]
+            val key = "yarn:" + g.key
+            val open = key in expandedList || yarnGroups.size == 1
+            Group(Modifier.padding(bottom = 10.dp)) {
+                ListRow(
+                    g.brand.ifEmpty { "No brand" },
+                    leading = { KIcon(Icons.Folder, if (g.brand.isEmpty()) Knit.colors.secondaryLabel else Knit.colors.accent, 22.dp) },
+                    value = yarnFolderCount(g.yarns.size, g.skeins),
+                    trailing = { KIcon(if (open) Icons.ChevronDown else Icons.ChevronRight, Knit.colors.tertiaryLabel, 16.dp) },
+                ) { toggle(key) }
+                if (open) {
+                    g.yarns.forEach { y ->
+                        RowDivider(68.dp)
+                        ListRow(y.name.trim().ifEmpty { "Untitled yarn" }, subtitle = yarnSummary(y, units, settings.ukTerms).ifBlank { null }, leading = { YarnPhoto(y.photoId, y.colorArgb, 40.dp) }, chevron = true) { yarn = y }
+                    }
+                    if (g.brand.isNotEmpty()) {
+                        RowDivider(68.dp)
+                        ListRow("Add ${g.brand} yarn", titleColor = Knit.colors.accent, leading = { KIcon(Icons.Plus, Knit.colors.accent, 22.dp) }) { yarn = Yarn(id = newId(), brand = g.brand) }
+                    }
+                }
+            }
+        }
         item {
             Group {
-                yarns.forEach { y ->
-                    ListRow(y.displayName, subtitle = yarnSummary(y, units, settings.ukTerms).ifBlank { null }, leading = { YarnPhoto(y.photoId, y.colorArgb, 40.dp) }, chevron = true) { yarn = y }
-                    RowDivider(68.dp)
-                }
                 ListRow("Add yarn", titleColor = Knit.colors.accent, leading = { KIcon(Icons.Plus, Knit.colors.accent, 22.dp) }) { yarn = Yarn(id = newId()) }
             }
             val total = yarns.mapNotNull { it.totalMeters }.sum()
@@ -544,7 +567,8 @@ private fun StashScreen() {
     }
     yarn?.let { y ->
         val isNew = yarns.none { it.id == y.id }
-        YarnSheet(y, isNew, { scope.launch { app.repo.saveYarn(it) } }, if (isNew) null else ({ scope.launch { app.repo.deleteYarn(y) } }), { yarn = null }, allowPhoto = true)
+        YarnSheet(y, isNew, { saved -> scope.launch { app.repo.saveYarn(saved) }; open("yarn:" + studio.knit.stash.brandKey(saved.brand)) },
+            if (isNew) null else ({ scope.launch { app.repo.deleteYarn(y) } }), { yarn = null }, allowPhoto = true, brands = knownYarnBrands(yarns))
     }
     needle?.let { n ->
         val isNew = needles.none { it.id == n.id }
@@ -568,3 +592,9 @@ private fun folderCount(needles: Int, cables: Int): String = when {
     needles == 0 -> "$cables ${if (cables == 1) "cable" else "cables"}"
     else -> "$needles · $cables ${if (cables == 1) "cable" else "cables"}"
 }
+
+/** "3 yarns · 12 skeins" for a yarn brand folder. */
+internal fun yarnFolderCount(yarns: Int, skeins: Double?): String = listOfNotNull(
+    "$yarns ${if (yarns == 1) "yarn" else "yarns"}",
+    skeins?.let { "${it.pretty()} ${if (it == 1.0) "skein" else "skeins"}" },
+).joinToString(" · ")
